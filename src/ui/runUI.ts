@@ -7,7 +7,7 @@
 import { gi, type IconName } from './icons';
 import type { Reward } from '../game/run';
 import { CONFIG } from '../config';
-import { TIER_LABEL, TIER_TARGET, makeChoices, pickProblem, fmt, type Problem } from '../math/problems';
+import { TIER_LABEL, TIER_TARGET, makeChoices, pickProblem, fmtValue, type Problem } from '../math/problems';
 import type { AnswerKind } from '../math/mastery';
 import type { Perk, PerkId, PerkLevels } from '../game/perks';
 import { PERKS } from '../game/perks';
@@ -163,7 +163,7 @@ export function askChoice(p: Problem, windowSec: number, isSuper = false): Promi
     <div class="crit-head"><span class="label ${isSuper ? 'super' : 'gold'}">${isSuper ? 'Super crit!' : 'Critical hit!'}</span><span class="label">${p.tier > 1 ? `<span class="t${p.tier}c">${TIER_LABEL[p.tier]} · ×${CONFIG.critByTier.damageMult[p.tier]} damage</span>` : isSuper ? 'time slows · nothing can touch you' : 'time is frozen · pick an answer'}</span></div>
     <div class="q">${esc(p.text)}${p.hint ? ` <small>${esc(p.hint)}</small>` : ''}</div>
     <div class="timer"><i style="animation-duration:${windowSec}s"></i></div>
-    <div class="choices">${options.map((o, i) => `<button data-i="${i}"><kbd>${i + 1}</kbd>${esc((p.prefix ?? '') + fmt(o) + (p.suffix ?? ''))}</button>`).join('')}</div>`,
+    <div class="choices">${options.map((o, i) => `<button data-i="${i}"><kbd>${i + 1}</kbd>${esc((p.prefix ?? '') + fmtValue(p, o) + (p.suffix ?? ''))}</button>`).join('')}</div>`,
     { bottom: true, dim: false });
   sheet.classList.add('crit'); if (isSuper) sheet.classList.add('super');
   const bar = sheet.querySelector<HTMLElement>('.timer i')!;

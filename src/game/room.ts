@@ -31,8 +31,8 @@ export const PROPS: Record<PropKind, PropDef> = {
   log: { textures: ['prop_log'], colliders: [[-24, -8, 10], [0, -8, 10], [24, -8, 10]], solid: true, originY: 0.82 },
   pillar: { textures: ['prop_pillar0', 'prop_pillar1'], colliders: [[0, -6, 11]], solid: true, originY: 0.93 },
   pit: { textures: ['prop_pit0', 'prop_pit1'], colliders: [[-13, 0, 15], [13, 0, 15], [0, 0, 16]], solid: false, originY: 0.5 },
-  pine: { textures: ['prop_pine0', 'prop_pine1', 'prop_pine2'], colliders: [[0, -5, 10]], solid: true, originY: 0.97 },
-  tree: { textures: ['prop_tree0', 'prop_tree1', 'prop_tree2'], colliders: [[0, -6, 12]], solid: true, originY: 0.96 },
+  pine: { textures: ['prop_pine0', 'prop_pine1', 'prop_pine2'], colliders: [[0, -5, 12]], solid: true, originY: 0.97 },
+  tree: { textures: ['prop_tree0', 'prop_tree1', 'prop_tree2'], colliders: [[0, -7, 15]], solid: true, originY: 0.96 },
   deadtree: { textures: ['prop_deadtree'], colliders: [[0, -5, 9]], solid: true, originY: 0.95 },
   wall: { textures: ['prop_wall'], colliders: [[-24, -10, 12], [0, -10, 12], [24, -10, 12]], solid: true, originY: 0.9 },
   crate: { textures: ['prop_crate'], colliders: [[0, -10, 13]], solid: true, originY: 0.94 },
@@ -53,7 +53,7 @@ export const PROPS: Record<PropKind, PropDef> = {
   sign: { textures: ['vh_sign'], colliders: [[0, -4, 7]], solid: true, originY: 0.96 },
   grave: { textures: ['vh_grave0', 'vh_grave1'], colliders: [[0, -6, 9]], solid: true, originY: 0.9 },
   // low heaps: they stop you walking, but shots fly over them
-  birch: { textures: ['vh_birch0', 'vh_birch1'], colliders: [[0, -6, 9]], solid: true, originY: 0.96 },
+  birch: { textures: ['vh_birch0', 'vh_birch1'], colliders: [[0, -6, 11]], solid: true, originY: 0.96 },
   rubble: { textures: ['vh_rubble0', 'vh_rubble1'], colliders: [[-12, -8, 11], [10, -8, 11]], solid: false, originY: 0.85 },
   blaze: { textures: ['vh_rubble0', 'vh_rubble1'], colliders: [[-12, -8, 12], [10, -8, 12]], solid: false, originY: 0.85 }, // burning rubble
 };

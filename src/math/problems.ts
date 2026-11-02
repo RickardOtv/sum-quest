@@ -54,7 +54,17 @@ export const fmt = (n: number) => { const r = Math.round(n * 100) / 100; return 
 /** Some currencies are written after the amount (48 kr), others before (€48). */
 const currencyAfter = () => currency.trim() === 'kr';
 const amount = (n: number) => (Math.abs(n - Math.round(n)) < 1e-9 ? String(Math.round(n)) : (Math.round(n * 100) / 100).toFixed(2));
+/**
+ * Kronor are worth about a tenth of a euro/dollar/pound, and nobody counts öre:
+ * with kr, money problems use 10× bigger, whole amounts (a 480 kr dinner, not a 48 kr one).
+ */
+const inKr = () => currencyAfter();
 export const money = (n: number) => (currencyAfter() ? `${amount(n)} ${currency.trim()}` : currency + amount(n));
+/** A number the way the answer is written: money gets two decimals (66.50, not 66.5). */
+export const fmtValue = (p: { tolerance: number; prefix?: string; suffix?: string }, n: number) =>
+  isMoney(p) ? amount(n) : fmt(n);
+const isMoney = (p: { tolerance: number; prefix?: string; suffix?: string }) =>
+  Math.abs(p.tolerance - 0.005) < 1e-9 && (!!p.prefix || (!!p.suffix && p.suffix !== '%'));
 /** Where the currency goes around a typed money answer. */
 const cur = (): { prefix?: string; suffix?: string } => (currencyAfter() ? { suffix: ` ${currency.trim()}` } : { prefix: currency });
 
@@ -159,10 +169,12 @@ export const GENERATORS: Generator[] = [
     } },
   { key: 'chg', tier: 2, category: 'everyday', weight: 1.2, label: 'Change from a note',
     make: () => {
-      const paid = pick([10, 20, 50]), price = rand(paid * 3, paid * 20 - 1) / 20, up = Math.ceil(price);
-      const change = Math.round((paid - price) * 100) / 100;
-      return { text: `${money(price)}, paid with ${money(paid)}`, hint: 'how much change?', answer: change, tolerance: 0.005, ...cur(),
-        explain: up === price ? `${money(paid)} − ${money(price)} = ${money(change)}` : `Count up: ${money(price)} → ${money(up)} is ${money(up - price)}, ${money(up)} → ${money(paid)} is ${money(paid - up)} → ${money(change)}` };
+      // kr: whole-krona prices and 100/200/500 notes; otherwise prices to the 5 cents and 10/20/50 notes
+      const paid = inKr() ? pick([100, 200, 500]) : pick([10, 20, 50]);
+      const price = inKr() ? rand(Math.round(paid * 0.15), paid - 1) : rand(paid * 3, paid * 20 - 1) / 20;
+      const step = inKr() ? 10 : 1, up = Math.ceil(price / step) * step, change = Math.round((paid - price) * 100) / 100;
+      return { text: `Pay ${money(price)} with ${money(paid)}`, hint: 'How much change do you get?', answer: change, tolerance: 0.005, ...cur(),
+        explain: up === price || up === paid ? `${money(paid)} − ${money(price)} = ${money(change)}` : `Count up: ${money(price)} → ${money(up)} is ${money(up - price)} · ${money(up)} → ${money(paid)} is ${money(paid - up)} · change = ${money(change)}` };
     } },
 
   // Tier 3 · hard
@@ -176,26 +188,31 @@ export const GENERATORS: Generator[] = [
     make: () => { const d = rand(3, 9), q = rand(14, 99); return { text: `${q * d} ÷ ${d}`, answer: q, explain: divSplit(q * d, d) }; } },
   { key: 'tip', tier: 3, category: 'everyday', weight: 1.4, label: 'Tips: 10%, 15%, 20%',
     make: () => {
-      const pct = pick([10, 15, 20]), bill = rand(9, 60) * 2, tip = bill * pct / 100, ten = bill / 10;
-      const explain = pct === 10 ? `10% = ${money(ten)}` : pct === 15 ? `10% = ${money(ten)}, + half of that ${money(ten / 2)} = ${money(tip)}` : `10% = ${money(ten)}, doubled = ${money(tip)}`;
-      return { text: `Bill ${money(bill)}, tip ${pct}%`, hint: 'how much is the tip?', answer: tip, tolerance: 0.005, ...cur(), explain };
+      // bills are chosen so the tip comes out in whole kronor, or in whole cents
+      const pct = pick([10, 15, 20]), bill = inKr() ? rand(12, 60) * 20 : rand(9, 60) * 2, tip = bill * pct / 100, ten = bill / 10;
+      const explain = pct === 10 ? `10% = ${money(bill)} ÷ 10 = ${money(ten)}`
+        : pct === 15 ? `10% = ${money(ten)} · 5% is half of that = ${money(ten / 2)} · 15% = ${money(ten)} + ${money(ten / 2)} = ${money(tip)}`
+        : `10% = ${money(ten)} · 20% is double = ${money(tip)}`;
+      return { text: `${pct}% tip on ${money(bill)}`, hint: 'How much is the tip?', answer: tip, tolerance: 0.005, ...cur(), explain };
     } },
   { key: 'split', tier: 3, category: 'everyday', weight: 1.3, label: 'Splitting the bill',
     make: () => {
-      const k = rand(2, 5), each = rand(28, 180) / 4, bill = each * k, chunk = Math.floor(bill / (10 * k)) * 10 * k;
-      const explain = chunk > 0 && chunk < bill ? `${money(chunk)} ÷ ${k} = ${money(chunk / k)}, ${money(bill - chunk)} ÷ ${k} = ${money((bill - chunk) / k)} → ${money(each)}` : `${money(bill)} ÷ ${k} = ${money(each)}`;
-      return { text: `Bill ${money(bill)}, ${k} people`, hint: 'how much does each pay?', answer: each, tolerance: 0.005, ...cur(), explain };
+      const k = rand(2, 5), each = inKr() ? rand(30, 450) : rand(28, 180) / 4, bill = each * k, chunk = Math.floor(bill / (10 * k)) * 10 * k;
+      const explain = chunk > 0 && chunk < bill ? `${money(chunk)} ÷ ${k} = ${money(chunk / k)} · ${money(bill - chunk)} ÷ ${k} = ${money((bill - chunk) / k)} · together ${money(each)}` : `${money(bill)} ÷ ${k} = ${money(each)}`;
+      return { text: `${money(bill)} split ${k} ways`, hint: 'How much does each person pay?', answer: each, tolerance: 0.005, ...cur(), explain };
     } },
   { key: 'disc', tier: 3, category: 'everyday', weight: 1.2, label: 'Discounts',
     make: () => {
-      const pct = pick([10, 20, 25, 30, 40, 50]), price = rand(4, 40) * 5, off = price * pct / 100;
-      return { text: `${money(price)}, ${pct}% off`, hint: 'price after the discount?', answer: price - off, tolerance: 0.005, ...cur(),
-        explain: `${pct}% of ${money(price)} = ${money(off)}, ${money(price)} − ${money(off)} = ${money(price - off)} (or pay ${100 - pct}%)` };
+      const pct = pick([10, 20, 25, 30, 40, 50]), price = inKr() ? rand(4, 40) * 50 : rand(4, 40) * 5, off = price * pct / 100, pay = price - off;
+      const explain = pct % 10 === 0
+        ? `${pct}% off → you pay ${100 - pct}% · 10% = ${money(price / 10)} · ${100 - pct}% = ${(100 - pct) / 10} × ${money(price / 10)} = ${money(pay)}`
+        : `${pct}% of ${money(price)} = ${money(off)} · ${money(price)} − ${money(off)} = ${money(pay)}`;
+      return { text: `${money(price)} with ${pct}% off`, hint: 'What do you pay?', answer: pay, tolerance: 0.005, ...cur(), explain };
     } },
   { key: 'pof', tier: 3, category: 'everyday', weight: 1, label: '5%–40% of a number',
     make: () => {
       const pct = pick([5, 20, 30, 40]), n = rand(6, 99) * 10, ans = n * pct / 100, ten = n / 10;
-      return { text: `${pct}% of ${n}`, answer: ans, explain: pct === 5 ? `10% = ${ten}, half of that = ${fmt(ans)}` : `10% = ${ten}, × ${pct / 10} = ${fmt(ans)}` };
+      return { text: `${pct}% of ${n}`, answer: ans, explain: pct === 5 ? `10% = ${n} ÷ 10 = ${ten} · 5% is half = ${fmt(ans)}` : `10% = ${n} ÷ 10 = ${ten} · ${pct}% = ${pct / 10} × ${ten} = ${fmt(ans)}` };
     } },
 
   // Tier 4 · expert
@@ -204,7 +221,7 @@ export const GENERATORS: Generator[] = [
       return { text: `${a} × ${b}`, answer: a * b, explain: `${a}×${bt} + ${a}×${bo} = ${a * bt} + ${a * bo} = ${a * b}` }; } },
   { key: 'ddec', tier: 4, category: 'muldiv', weight: 1.1, label: 'Division with decimals',
     make: () => { const d = rand(3, 9); let n = rand(100, 400); if (n % d === 0) n++;
-      return { text: `${n} ÷ ${d}`, hint: '1 decimal', answer: Math.round((n / d) * 10) / 10, tolerance: 0.06, explain: `${divSplit(n, d)} ≈ ${(n / d).toFixed(1)}` }; } },
+      return { text: `${n} ÷ ${d}`, hint: 'Round to 1 decimal', answer: Math.round((n / d) * 10) / 10, tolerance: 0.06, explain: `${divSplit(n, d)} ≈ ${(n / d).toFixed(1)}` }; } },
   { key: 'sq', tier: 4, category: 'muldiv', weight: 0.8, label: 'Squares 13–39',
     make: () => { let n = rand(13, 39); if (n % 10 === 0) n++; const round = n % 10 <= 5 ? n - (n % 10) : n + 10 - (n % 10), d = Math.abs(n - round), other = 2 * n - round;
       return { text: `${n}²`, answer: n * n, explain: `${n}² = ${Math.max(round, other)}×${Math.min(round, other)} + ${d}² = ${round * other} + ${d * d} = ${n * n}` }; } },
@@ -221,13 +238,13 @@ export const GENERATORS: Generator[] = [
     make: () => {
       let a = 0, pct = 0, b = 0;
       do { a = pick([20, 25, 40, 50, 60, 80, 120, 150, 200, 250, 400]); pct = pick([5, 10, 15, 20, 25, 30, 40, 50, 60, 75]); b = (a * (100 + pct)) / 100; } while ((a * pct) % 100 !== 0);
-      return { text: `${a} → ${b}`, hint: '% increase', answer: pct, suffix: '%', explain: `(${b} − ${a}) ÷ ${a} = ${b - a} ÷ ${a} = ${pct}%` };
+      return { text: `${a} → ${b}`, hint: 'By what % did it go up?', answer: pct, suffix: '%', explain: `(${b} − ${a}) ÷ ${a} = ${b - a} ÷ ${a} = ${pct}%` };
     } },
   { key: 'tip18', tier: 4, category: 'everyday', weight: 1, label: 'Odd tips (12%, 18%)',
     make: () => {
-      const pct = pick([12, 18]), bill = rand(4, 30) * 5, tip = bill * pct / 100;
-      return { text: `Bill ${money(bill)}, tip ${pct}%`, hint: 'how much is the tip?', answer: tip, tolerance: 0.005, ...cur(),
-        explain: pct === 18 ? `20% = ${money(bill * 0.2)}, − 2% ${money(bill * 0.02)} = ${money(tip)}` : `10% = ${money(bill * 0.1)}, + 2% ${money(bill * 0.02)} = ${money(tip)}` };
+      const pct = pick([12, 18]), bill = inKr() ? rand(4, 30) * 50 : rand(4, 30) * 5, tip = bill * pct / 100;
+      return { text: `${pct}% tip on ${money(bill)}`, hint: 'How much is the tip?', answer: tip, tolerance: 0.005, ...cur(),
+        explain: pct === 18 ? `20% = ${money(bill * 0.2)} · 2% = ${money(bill * 0.02)} · 18% = ${money(bill * 0.2)} − ${money(bill * 0.02)} = ${money(tip)}` : `10% = ${money(bill * 0.1)} · 2% = ${money(bill * 0.02)} · 12% = ${money(bill * 0.1)} + ${money(bill * 0.02)} = ${money(tip)}` };
     } },
 ];
 

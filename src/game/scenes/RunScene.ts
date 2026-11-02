@@ -24,7 +24,7 @@ import { type Arena, type Enemy, createEnemy, destroyEnemy, flies, isBig, update
 import { rollPerks } from '../perks';
 import { type DoorSpec, type EnemyKind, type RunState, ZONE_ROOMS, enemyHpMult, isFinalBoss, localRoom, newRun, planEnemies, rollDoors, zoneOfRoom } from '../run';
 import { ZONES, type Zone } from '../zones';
-import { FIRE_SPOTS, planVillage, type VillageLayout } from '../village';
+import { FIRE_SPOTS, planVillage, reachable, type VillageLayout } from '../village';
 import * as ui from '../../ui/runUI';
 import { runLesson } from '../../ui/training';
 import { openChestFlow } from '../../ui/loot';
@@ -42,6 +42,9 @@ interface CritShot { img: Phaser.GameObjects.Image; x: number; y: number; target
 
 export type ExitChoice = 'again' | 'camp' | 'forge' | 'bag';
 
+/** Cached solid-pixel masks for prop textures (see RunScene.maskOf). */
+const MASKS = new Map<string, { w: number; solid: Uint8Array } | null>();
+
 export class RunScene extends Phaser.Scene {
   private run!: RunState;
   /** Numbers from equipped gear (damage, HP, crit chance…), fixed for the run. */
@@ -52,6 +55,10 @@ export class RunScene extends Phaser.Scene {
   /** Gameplay time scale: 1 = normal, lower = slow motion while solving. */
   private timeScale = 1;
   private prompting = false;
+  private promptGuard = 0;
+  private easing = 1; // seconds into the ease-in after a question (≥ 0.5 = done)
+  private critSaved = false; // a crit rolled and waits for a safe moment
+  private critRing?: Phaser.GameObjects.Ellipse; // ms since the last "is a question really open?" check
   private paused = false;
   private ended = false;
   private roomActive = false;
@@ -66,7 +73,12 @@ export class RunScene extends Phaser.Scene {
   private coins: Coin[] = [];
   private hazards: Hazard[] = [];
   /** This room's props: their sprites and colliders (solid ones also stop shots and bullets). */
-  private props: { img: Phaser.GameObjects.Image; colliders: { x: number; y: number; r: number }[]; solid: boolean }[] = [];
+  /**
+   * This room's props: sprite, walking colliders (circles at the base), and whether it's solid.
+   * Solid props also stop shots and bullets wherever their picture is drawn (tree crowns, roofs),
+   * unless the shot passes in front of them.
+   */
+  private props: { img: Phaser.GameObjects.Image; colliders: { x: number; y: number; r: number }[]; solid: boolean; box?: { x: number; y: number; w: number; h: number } }[] = [];
   /** Everything else that belongs to the room's look: decoration, shadows, fires, smoke. */
   private decor: Phaser.GameObjects.GameObject[] = [];
   private bossesBeaten = 0;
@@ -112,7 +124,7 @@ export class RunScene extends Phaser.Scene {
     }
     // Everything that must not leak from one run into the next.
     Object.assign(this, {
-      timeScale: 1, prompting: false, paused: false, ended: false, roomActive: false,
+      timeScale: 1, prompting: false, promptGuard: 0, easing: 1, critSaved: false, critRing: undefined, paused: false, ended: false, roomActive: false,
       enemies: [], shots: [], bullets: [], coins: [], hazards: [], props: [], decor: [], chestsOpened: 0, doors: [], crit: null, critCooldown: 2, recent: [], runSkills: {}, missed: [],
       stick: { active: false, id: -1, ox: 0, oy: 0, dx: 0, dy: 0 }, trailTimer: 0, hudTimer: 0,
       superTint: undefined, wardRing: undefined, frostFactor: 0.4, riftDamage: 0, guaranteedCrit: false,
@@ -166,7 +178,9 @@ export class RunScene extends Phaser.Scene {
     this.keys = k.addKeys({ up: 'UP', down: 'DOWN', left: 'LEFT', right: 'RIGHT', w: 'W', a: 'A', s: 'S', d: 'D' }, false) as typeof this.keys;
     // Floating thumb-stick: touch anywhere, drag to move, let go to stop (and attack).
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      if (this.stick.active) return;
+      // a second finger doesn't steal the stick, unless the stick's own finger is gone (lifted where we couldn't see it)
+      const holder = this.input.manager.pointers.find(q => q.id === this.stick.id);
+      if (this.stick.active && holder?.isDown && holder !== p) return;
       this.stick = { active: true, id: p.id, ox: p.x, oy: p.y, dx: 0, dy: 0 };
     });
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
@@ -289,7 +303,7 @@ export class RunScene extends Phaser.Scene {
     await new Promise<void>(done => openChestFlow(save.chests.length - 1, done, true));
     this.chestsOpened++;
     if (JSON.stringify(save.equipped) !== before) this.refreshGear();
-    this.paused = false;
+    this.paused = false; this.resetStick();
   }
 
   /** New gear mid-run: recompute stats and redraw the hero. Max HP changes keep your missing HP the same. */
@@ -369,16 +383,24 @@ export class RunScene extends Phaser.Scene {
     this.run.gold += goldFor(correct);
     if (correct >= 3) earnPoint(`lesson-${trick.id}`, trick.title);
     this.addCharge(25);
-    this.paused = false;
+    this.paused = false; this.resetStick();
     this.showDoors();
   }
 
   /** Rocks, trees, houses… so a room isn't an empty field (see game/room.ts and game/village.ts). */
   private placeLayout(props: PlacedProp[], decor: PlacedDecor[]) {
+    // bushes are low: you can't walk through them, but shots fly over
+    const bushCol = (d: PlacedDecor, w: number) => ({ x: d.x, y: d.y - 3, r: Math.max(7, Math.min(11, w * 0.3)) });
+    const bushes = decor.filter(d => d.kind === 'bush');
+    const area = { left: this.bounds.left, right: this.bounds.right, top: this.bounds.top, bottom: this.bounds.bottom };
+    const solidBushes = this.zone.style !== 'village' || reachable(area, props, bushes.map(d => bushCol(d, this.textures.getFrame(d.texture).width)));
     for (const d of decor) {
       const img = this.add.image(d.x, d.y, d.texture).setOrigin(0.5, 0.8).setDepth(d.kind === 'bush' ? d.y : 1.5);
+      if (d.kind === 'bush') {
+        this.castShadow(img, false);
+        if (solidBushes) { this.props.push({ img, colliders: [bushCol(d, img.width)], solid: false }); continue; }
+      }
       this.decor.push(img);
-      if (d.kind === 'bush') this.castShadow(img, false);
     }
     for (const p of props) {
       const def = PROPS[p.kind];
@@ -389,7 +411,8 @@ export class RunScene extends Phaser.Scene {
         this.decor.push(this.add.image(p.x, p.y - 3, 'prop_shadow').setScale(span / 32, Math.min(1.3, span / 44)).setAlpha(0.6).setDepth(1.7));
         this.castShadow(img, p.flip);
       }
-      this.props.push({ img, colliders: cols, solid: def.solid });
+      const b = img.getBounds();
+      this.props.push({ img, colliders: cols, solid: def.solid, box: def.solid ? { x: b.x, y: b.y, w: b.width, h: b.height } : undefined });
       const burning = p.kind === 'burnt' || p.kind === 'blaze' || p.texture === 'vh_hay1' || p.texture === 'vh_ruin1';
       if (burning) for (const [sx, sy] of FIRE_SPOTS[p.texture] ?? []) {
         const fw = img.width, fh = img.height;
@@ -443,9 +466,39 @@ export class RunScene extends Phaser.Scene {
     }
     return [x, y];
   }
-  /** Does a shot or bullet at ground point (x, y) hit something solid? */
-  private hitsSolid(x: number, y: number): boolean {
-    return this.props.some(p => p.solid && p.colliders.some(c => Math.hypot(c.x - x, c.y - y) < c.r));
+  /**
+   * Does a shot or bullet hit something solid? (`x`, `y`) is where it's drawn, `ground` the ground
+   * line under it. It hits a prop's base colliders, or any visible pixel of the prop's picture
+   * (a tree crown, a roof) as long as the shot is behind or level with the prop, not passing in front.
+   */
+  private hitsSolid(x: number, y: number, ground: number): boolean {
+    for (const p of this.props) {
+      if (!p.solid) continue;
+      if (p.colliders.some(c => Math.hypot(c.x - x, c.y - ground) < c.r)) return true;
+      const b = p.box;
+      if (!b || ground > p.img.y + 2 || x < b.x || x >= b.x + b.w || y < b.y || y >= b.y + b.h) continue;
+      const lx = Math.floor(p.img.flipX ? b.w - 1 - (x - b.x) : x - b.x), ly = Math.floor(y - b.y);
+      const m = this.maskOf(p.img.texture.key);
+      if (m && m.solid[ly * m.w + lx]) return true;
+    }
+    return false;
+  }
+
+  /** Which pixels of a texture are solid (opaque), worked out once per texture and kept. */
+  private maskOf(key: string): { w: number; solid: Uint8Array } | null {
+    const hit = MASKS.get(key);
+    if (hit !== undefined) return hit;
+    const src = this.textures.get(key).getSourceImage() as HTMLCanvasElement | HTMLImageElement;
+    let mask: { w: number; solid: Uint8Array } | null = null;
+    try {
+      const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+      const ctx = c.getContext('2d')!; ctx.drawImage(src, 0, 0);
+      const data = ctx.getImageData(0, 0, c.width, c.height).data, solid = new Uint8Array(c.width * c.height);
+      for (let i = 0; i < solid.length; i++) solid[i] = data[i * 4 + 3] > 120 ? 1 : 0;
+      mask = { w: c.width, solid };
+    } catch { /* unreadable texture: fall back to the base colliders only */ }
+    MASKS.set(key, mask);
+    return mask;
   }
   private dust(x: number, y: number) {
     const puff = this.add.particles(x, y, 'pxw', { speed: { min: 20, max: 70 }, lifespan: 260, quantity: 6, scale: { start: 1.4, end: 0 }, tint: [0x8a847c, 0x6a6460], emitting: false }).setDepth(1500);
@@ -456,6 +509,8 @@ export class RunScene extends Phaser.Scene {
 
   update(_time: number, deltaMs: number) {
     if (this.paused || this.ended) { this.drawStick(); return; }
+    this.checkPromptGuard(deltaMs);
+    if (this.easing < 0.5 && !this.prompting) { this.easing += deltaMs / 1000; this.timeScale = 0.25 + 0.75 * Math.min(1, this.easing / 0.5); }
     const dt = Math.min(0.05, deltaMs / 1000) * this.timeScale;
     this.tweens.timeScale = this.timeScale || 1;
 
@@ -524,7 +579,12 @@ export class RunScene extends Phaser.Scene {
     const top = this.doors.some(d => Math.abs(d.x - h.x) < 18) ? CONFIG.world.wallTop - 4 : this.bounds.top;
     h.x = Phaser.Math.Clamp(h.x, this.bounds.left + 8, this.bounds.right - 8);
     h.y = Phaser.Math.Clamp(h.y, top, this.bounds.bottom - 4);
-    if (this.props.length) [h.x, h.y] = this.pushOut(h.x, h.y, CONFIG.hero.radius);
+    // a few passes, so standing between two colliders (or a collider and the wall) can't trap you
+    for (let i = 0; i < 3 && this.props.length; i++) {
+      [h.x, h.y] = this.pushOut(h.x, h.y, CONFIG.hero.radius);
+      h.x = Phaser.Math.Clamp(h.x, this.bounds.left + 8, this.bounds.right - 8);
+      h.y = Phaser.Math.Clamp(h.y, top, this.bounds.bottom - 4);
+    }
 
     // attack when standing still
     h.fireCooldown -= dt;
@@ -543,6 +603,11 @@ export class RunScene extends Phaser.Scene {
     h.body.setPosition(h.x, h.y).setDepth(h.y);
     h.body.setAlpha(h.invulnerable > 0 && Math.floor(h.invulnerable * 20) % 2 === 0 ? 0.4 : 1);
     h.shadow.setPosition(h.x, h.y);
+    // a saved crit: a pulsing gold ring under the hero until it fires
+    if (this.critSaved) {
+      this.critRing ??= this.add.ellipse(h.x, h.y, 34, 14).setStrokeStyle(2, 0xf2c94c, 0.9).setDepth(1.9);
+      this.critRing.setPosition(h.x, h.y).setVisible(true).setScale(1 + 0.08 * Math.sin(this.time.now / 120));
+    } else this.critRing?.setVisible(false);
     const bob = 0;
     // fading after-images while moving, for a fast, sharp feel
     this.trailTimer -= dt;
@@ -563,13 +628,51 @@ export class RunScene extends Phaser.Scene {
     return best;
   }
 
+  /**
+   * Is now a fair moment to stop for a question? Not when a bullet is about to reach you, an enemy
+   * is right on top of you, a charger is winding up or charging, or a warning circle is under you.
+   */
+  private safeForCrit(): boolean {
+    const h = this.hero;
+    for (const b of this.bullets) {
+      const dx = h.x - b.x, dy = h.y - 16 - b.y, d = Math.hypot(dx, dy);
+      if (d < 70) return false;
+      if (d < 170 && (b.vx * dx + b.vy * dy) / (Math.hypot(b.vx, b.vy) * d || 1) > 0.8) return false; // heading your way
+    }
+    for (const e of this.enemies) {
+      if (e.dead) continue;
+      const d = Phaser.Math.Distance.Between(h.x, h.y, e.x, e.y);
+      if (d < e.radius + 55) return false;
+      const charger = e.kind === 'boar' || e.kind === 'tusk' || e.kind === 'hound' || e.kind === 'cinderjaw';
+      if (charger && e.phase >= 1 && d < 260) return false;
+    }
+    for (const hz of this.hazards) if (Phaser.Math.Distance.Between(hz.x, hz.y, h.x, h.y) < hz.r + 30) return false;
+    return true;
+  }
+
+  /** Is there a clear line for a slash from the hero to this enemy (no tree, rock or house in the way)? */
+  private clearShot(e: Enemy): boolean {
+    const h = this.hero, x0 = h.x, y0 = h.y - 20, x1 = e.x, y1 = e.y - 8, n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 10);
+    for (let i = 1; i < n; i++) { const t = i / n, x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t; if (this.hitsSolid(x, y, y + 20)) return false; }
+    return true;
+  }
+
   /** Throw slashes at the target. Sometimes it becomes a crit, which asks a question. */
   private attack(target: Enemy) {
+    // auto-aim prefers someone you can actually hit: the nearest enemy in clear view, if the first pick is behind cover
+    if (this.props.length && !this.clearShot(target)) {
+      const open = this.enemies.filter(e => !e.dead && e !== target && this.clearShot(e))
+        .sort((a, b) => Phaser.Math.Distance.Between(this.hero.x, this.hero.y, a.x, a.y) - Phaser.Math.Distance.Between(this.hero.x, this.hero.y, b.x, b.y))[0];
+      if (open) target = open;
+    }
     const h = this.hero, p = this.run.perks;
     h.swing = 0.15; h.attackUntil = this.time.now + 400; // play the swing animation
     const damage = this.stats.damage * (1 + 0.2 * (p.sharp ?? 0));
     const chance = this.stats.critChance + 0.05 * (p.keen ?? 0);
-    if (!this.crit && !this.prompting && (this.guaranteedCrit || (this.critCooldown <= 0 && Math.random() < chance))) { this.guaranteedCrit = false; this.launchCrit(target, damage); return; }
+    // A crit that rolls is saved (gold ring under the hero) until a safe moment, so the question
+    // never pops up just as a bullet or a charging boar is about to hit you.
+    if (!this.critSaved && !this.crit && (this.guaranteedCrit || (this.critCooldown <= 0 && Math.random() < chance))) { this.guaranteedCrit = false; this.critSaved = true; }
+    if (this.critSaved && !this.crit && !this.prompting && this.safeForCrit()) { this.critSaved = false; this.launchCrit(target, damage); return; }
 
     const base = Math.atan2(target.y - h.y, target.x - h.x);
     const count = 1 + (p.multishot ?? 0);
@@ -584,7 +687,8 @@ export class RunScene extends Phaser.Scene {
     this.shots = this.shots.filter(s => {
       s.x += s.vx * dt; s.y += s.vy * dt; s.img.setPosition(s.x, s.y);
       if (s.x < 0 || s.x > this.W || s.y < CONFIG.world.wallTop - 10 || s.y > this.H) { s.img.destroy(); return false; }
-      if (this.hitsSolid(s.x, s.y + 20)) { this.dust(s.x, s.y + 4); s.img.destroy(); return false; } // slashes fly 20 px above the ground
+      s.img.setDepth(s.y + 20); // drawn at its ground line: behind things in front of it, over things behind it
+      if (this.hitsSolid(s.x, s.y, s.y + 20)) { this.dust(s.x, s.y + 4); s.img.destroy(); return false; } // slashes fly 20 px above the ground
       for (const e of this.enemies) {
         if (s.hits.has(e) || e.dead) continue;
         if (Phaser.Math.Distance.Between(s.x, s.y, e.x, e.y - 8) < e.radius + 6) {
@@ -609,7 +713,8 @@ export class RunScene extends Phaser.Scene {
     this.bullets = this.bullets.filter(b => {
       b.x += b.vx * dt; b.y += b.vy * dt; b.img.setPosition(b.x, b.y);
       if (b.x < 0 || b.x > this.W || b.y < CONFIG.world.wallTop - 20 || b.y > this.H) { b.img.destroy(); return false; }
-      if (this.hitsSolid(b.x, b.y + 8)) { this.dust(b.x, b.y); b.img.destroy(); return false; } // rocks and trees are cover
+      b.img.setDepth(b.y + 8);
+      if (this.hitsSolid(b.x, b.y, b.y + 8)) { this.dust(b.x, b.y); b.img.destroy(); return false; } // rocks, trees and houses are cover
       if (Phaser.Math.Distance.Between(b.x, b.y, h.x, h.y - 16) < CONFIG.hero.radius + 4) { this.hurtHero(b.damage); b.img.destroy(); return false; }
       return true;
     });
@@ -682,7 +787,7 @@ export class RunScene extends Phaser.Scene {
     if (isSuper) img.setTint(0xff9a45);
     this.tweens.add({ targets: img, scale: isSuper ? 4 : 3.2, yoyo: true, repeat: -1, duration: 160 });
     this.crit = { img, x: h.x, y: h.y - 20, target, speed, damage: damage * CONFIG.critByTier.damageMult[tier], state: 'pending', isSuper };
-    this.prompting = true;
+    this.startPrompt();
     this.timeScale = isSuper ? CONFIG.crit.superTimeScale : 0;
     this.cameras.main.zoomTo(isSuper ? 1.08 : 1.04, 200);
     if (isSuper) {
@@ -696,16 +801,21 @@ export class RunScene extends Phaser.Scene {
 
     ui.askChoice(problem, windowSec, isSuper).then(res => {
       if (this.ended) return;
-      logAnswer(problem, res.kind, res.seconds, true);
-      this.trackRunSkill(problem.genKey, res.kind === 'exact');
-      this.run.stats.answered++;
-      const c = this.crit;
-      if (res.kind === 'exact') { this.run.stats.exact++; this.run.stats.critsHit++; if (c) { c.state = 'hit'; c.speed = 520; } }
-      else { this.run.stats.critsMissed++; if (c) c.state = 'fizzle'; ui.explainResult(problem, res.kind, res.seconds); this.missed.push(ui.missedEntry(problem)); }
-      this.prompting = false; this.timeScale = 1; this.critCooldown = CONFIG.crit.cooldown;
+      // unfreeze first, so nothing below can ever leave the game stuck in frozen time
+      this.endPrompt(); this.critCooldown = CONFIG.crit.cooldown;
+      this.easeIn(); // time picks up over half a second, and you're briefly safe, so you can react
       this.cameras.main.zoomTo(1, 200);
       if (this.superTint) { const t = this.superTint; this.superTint = undefined; this.tweens.add({ targets: t, alpha: 0, duration: 300, onComplete: () => t.destroy() }); }
+      const c = this.crit;
       if (c?.isSuper) this.hero.invulnerable = Math.max(0.5, this.wardTimer); // don't cut short an active Ward
+      if (res.kind === 'exact') { this.run.stats.exact++; this.run.stats.critsHit++; if (c) { c.state = 'hit'; c.speed = 520; } }
+      else { this.run.stats.critsMissed++; if (c) c.state = 'fizzle'; }
+      this.run.stats.answered++;
+      try {
+        logAnswer(problem, res.kind, res.seconds, true);
+        this.trackRunSkill(problem.genKey, res.kind === 'exact');
+        if (res.kind !== 'exact') { ui.explainResult(problem, res.kind, res.seconds); this.missed.push(ui.missedEntry(problem)); }
+      } catch (err) { console.error(err); }
     });
   }
 
@@ -731,6 +841,30 @@ export class RunScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * A question is on screen: time stops and the thumb-stick lets go (the finger that held it
+   * lifts over the question panel, where the game can't always see it).
+   */
+  private startPrompt() { this.prompting = true; this.timeScale = 0; this.promptGuard = 0; this.resetStick(); }
+  private endPrompt() { this.prompting = false; this.timeScale = 1; this.promptGuard = 0; this.resetStick(); }
+  /** After a question: time speeds back up from slow motion over 0.5 s, with a short safety window. */
+  private easeIn() {
+    this.hero.invulnerable = Math.max(this.hero.invulnerable, 0.6);
+    this.easing = 0; this.timeScale = 0.25; // update() ramps it to 1
+  }
+  private resetStick() { this.stick = { active: false, id: -1, ox: 0, oy: 0, dx: 0, dy: 0 }; }
+  /**
+   * Safety net: if the game thinks a question is open but none is on screen, unfreeze.
+   * (Checked about twice a second; a question panel always has the .crit or .typed-sheet class.)
+   */
+  private checkPromptGuard(deltaMs: number) {
+    if (!this.prompting) return;
+    this.promptGuard += deltaMs;
+    if (this.promptGuard < 600) return;
+    this.promptGuard = 0;
+    if (!document.querySelector('.overlay.crit, .typed-sheet')) { console.warn('prompt guard: no question on screen, unfreezing'); this.endPrompt(); this.cameras.main.zoomTo(1, 200); }
+  }
+
   /* ================= special skills: type the answer, cast the effect ================= */
 
   private useSpecial(index: number) {
@@ -738,11 +872,10 @@ export class RunScene extends Phaser.Scene {
     if (!skill || this.prompting || this.paused || this.ended) return;
     if (!this.roomActive || !this.enemies.length) { ui.feedback('No enemies here', 1.2); return; }
     if (this.run.charges[index] < 100) { const left = ((100 - this.run.charges[index]) / 100) * skill.recharge / this.stats.chargeMult; ui.feedback(`${skill.name} recharging · about ${Math.ceil(left)}s`, 1.2); return; }
-    this.prompting = true;
-    this.timeScale = 0; // time stands still while you think
-    ui.askSpecial(skill, this.stats.calm, this.run.perks, this.recent).then(res => {
+    this.startPrompt(); // time stands still while you think
+    ui.askSpecial(skill, this.stats.calm, this.run.perks, this.recent).catch(err => { console.error(err); return null; }).then(res => {
       if (this.ended) return;
-      this.prompting = false; this.timeScale = 1;
+      this.endPrompt(); this.easeIn();
       if (!res) return;
       const p = res.problem, perks = this.run.perks;
       this.remember(p.key);
@@ -961,7 +1094,7 @@ export class RunScene extends Phaser.Scene {
     this.paused = true;
     const r = await ui.pauseMenu(this.run.gold, `${this.zone.name} · room ${localRoom(this.run.room) + 1} of ${ZONE_ROOMS}`);
     if (r === 'flee') { this.paused = false; this.endRun('fled'); return; }
-    this.paused = false;
+    this.paused = false; this.resetStick();
   }
 
   private updateWard(dt: number) {

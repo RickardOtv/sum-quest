@@ -165,8 +165,8 @@ export function planVillage(area: Area, room: number, reward: Reward, rnd: () =>
 }
 
 /** Can the hero (radius 8) walk from the start to the door strip? A flood fill over a 6-px grid. */
-export function reachable(area: Area, props: PlacedProp[]): boolean {
-  const cols = props.flatMap(collidersOf), step = 6, r = 9;
+export function reachable(area: Area, props: PlacedProp[], extra: { x: number; y: number; r: number }[] = []): boolean {
+  const cols = [...props.flatMap(collidersOf), ...extra], step = 6, r = 9;
   const gw = Math.floor((area.right - area.left) / step), gh = Math.floor((area.bottom - area.top) / step);
   const free = (i: number, j: number) => { const x = area.left + i * step, y = area.top + j * step; return cols.every(c => Math.hypot(c.x - x, c.y - y) >= c.r + r); };
   const seen = new Uint8Array(gw * gh), queue: number[] = [];

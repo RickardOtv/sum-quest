@@ -1,5 +1,5 @@
 /** Tiny DOM helpers shared by every menu and prompt. */
-import { fmt, judge, type Problem } from '../math/problems';
+import { fmtValue, judge, type Problem } from '../math/problems';
 import type { AnswerKind } from '../math/mastery';
 
 export const uiRoot = () => document.getElementById('ui')!;
@@ -159,4 +159,4 @@ export function askTyped(ask: TypedAsk): Promise<TypedResult | null> {
 }
 
 /** "€7.60" / "35%" — the answer the way the player would type it. */
-export const answerText = (p: Problem) => (p.prefix ?? '') + fmt(p.answer) + (p.suffix ?? '');
+export const answerText = (p: Problem) => (p.prefix ?? '') + fmtValue(p, p.answer) + (p.suffix ?? '');
