@@ -18,6 +18,23 @@ the cog, top right. In a run: drag to move, stand still to attack,
 Space / E = skill 1 / 2, 1–3 = crit answer, digits + Enter = typed answers, Esc = pause.
 Dev shortcuts (only with `npm run dev`): `?boss` jumps to the boss, `?super` makes every crit a super crit.
 
+## Publishing (Cloudflare)
+
+The game is a static site: Cloudflare runs `npm run build` on every push to `main` and publishes `dist/`.
+It's an installable web app: on iPhone, Safari → ••• → Share → Add to Home Screen gives it an icon,
+full screen and an offline copy (`sw.js`, written at build time by `scripts/sw-plugin.ts`).
+
+- `public/manifest.webmanifest` name, colours and icons for the home screen
+- `public/icons/` app icons, made by `python3 scripts/make_icons.py` from the hero sprite
+- `public/_headers` cache rules (the page and `sw.js` are always re-checked, so updates arrive on the next start)
+- `wrangler.jsonc` Cloudflare settings (the site is the `dist/` folder)
+- `src/pwa.ts` service worker registration, "installed?" checks, Android's install prompt
+- `src/ui/install.ts` the "Add to your home screen" tip in camp and the steps sheet
+
+Privacy: no cookies, no accounts, no tracking. The save is in localStorage on the device (needed for the game
+itself, so no consent banner). Fonts are bundled (no Google Fonts requests). Settings → Backup save makes a code
+that moves progress to another device.
+
 ## Where things live
 
 ```

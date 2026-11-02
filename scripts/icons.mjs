@@ -20,6 +20,8 @@ const NAMES = [
   'sword-slice', 'battery-pack', 'stone-wall', 'eye-target', 'brain',
   // run powers
   'sword-clash', 'fast-arrow', 'piercing-sword', 'run', 'heart-drop', 'magic-swirl', 'stopwatch',
+  // app: install hint, save backup
+  'smartphone', 'save',
 ];
 const all = JSON.parse(readFileSync(new URL('../node_modules/@iconify-json/game-icons/icons.json', import.meta.url))).icons;
 const missing = NAMES.filter(n => !all[n]);

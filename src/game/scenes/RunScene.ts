@@ -959,7 +959,7 @@ export class RunScene extends Phaser.Scene {
   private async pause() {
     if (this.paused || this.prompting || this.ended) return;
     this.paused = true;
-    const r = await ui.pauseMenu(this.run.gold);
+    const r = await ui.pauseMenu(this.run.gold, `${this.zone.name} · room ${localRoom(this.run.room) + 1} of ${ZONE_ROOMS}`);
     if (r === 'flee') { this.paused = false; this.endRun('fled'); return; }
     this.paused = false;
   }

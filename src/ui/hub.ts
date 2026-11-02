@@ -8,6 +8,7 @@ import type { Npc } from '../game/art/camp';
 import { ICONS, spriteCanvas } from '../game/art/sprites';
 import { currentStreak, dayKey, save } from '../state/save';
 import { esc, fmtTime, html, uiRoot } from './dom';
+import { installHint } from './install';
 
 export interface HubPrompt { id: string; label: string; glyph: IconName; npc?: Npc; }
 interface Handlers { bag: () => void; settings: () => void; use: () => void; }
@@ -35,6 +36,9 @@ export function showHubHud(h: Handlers) {
   hud.querySelector('.coin')!.appendChild(spriteCanvas(ICONS.gold, 2));
   hud.querySelector('.bag-btn')!.addEventListener('click', () => handlers?.bag());
   hud.querySelector('.settings-btn')!.addEventListener('click', () => handlers?.settings());
+  // new players first meet the camp; the "add to home screen" tip comes once they've played a little
+  const tip = save.totals.answered > 0 ? installHint() : null;
+  if (tip) hud.querySelector('.camp-top')!.after(tip);
   uiRoot().appendChild(hud);
   if (save.totals.answered > 30) hud.querySelector('.hub-hint')!.remove(); // the hint is for new players
 }

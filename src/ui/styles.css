@@ -81,7 +81,7 @@ kbd { font-family: var(--body); font-size: 10px; color: var(--muted); }
 
 /* ---------- camp ---------- */
 .camp { position: absolute; inset: 0; background: var(--bg); display: flex; flex-direction: column; }
-.camp-top { display: flex; gap: 6px; justify-content: space-between; padding: 12px max(16px, env(safe-area-inset-right, 0px)) 6px max(16px, env(safe-area-inset-left, 0px)); }
+.camp-top { display: flex; gap: 6px; justify-content: space-between; padding: max(12px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 6px max(16px, env(safe-area-inset-left, 0px)); }
 .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 5px 10px; background: var(--panel); border: 2px solid var(--line); border-radius: var(--radius); }
 .coin { display: inline-flex; }
 .camp-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 8px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); touch-action: pan-y; }
@@ -164,7 +164,7 @@ svg.week g:hover .bar-fill { fill: var(--gold-2); }
 .rooms i.mini.done, .rooms i.boss.done { color: #241a08; }
 .rooms .room-no { margin-left: 6px; font-size: 12px; font-weight: 700; color: var(--ink); text-shadow: 0 1px 2px #000; }
 .gold-pill { display: flex; align-items: center; gap: 5px; padding: 5px 9px; background: rgba(13, 11, 18, 0.75); border: 2px solid var(--line); border-radius: var(--radius); font-size: 16px; font-weight: 700; }
-.perk-strip { position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); top: calc(max(10px, env(safe-area-inset-top, 0px)) + 82px); display: flex; gap: 4px; color: var(--gold-2); font-size: 16px; }
+.perk-strip { position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); bottom: max(22px, env(safe-area-inset-bottom, 0px)); max-width: calc(100% - 120px); flex-wrap: wrap; display: flex; gap: 4px; color: var(--gold-2); font-size: 16px; }
 .perk-strip span { display: inline-flex; align-items: center; background: rgba(13, 11, 18, 0.8); padding: 2px 5px; border-radius: 4px; }
 .perk-strip sub { font-size: 10px; font-weight: 700; }
 .feedback { position: absolute; left: 50%; top: 25%; transform: translateX(-50%); width: min(88%, 380px); text-align: center; font-size: 14px; line-height: 1.4;
@@ -416,7 +416,7 @@ details.missed > summary { cursor: pointer; }
 .prompt-btn .use { font-size: 12px; font-weight: 800; color: #241a08; background: var(--gold); border-radius: 4px; padding: 6px 9px; white-space: nowrap; }
 .prompt-btn .use kbd { color: #241a08; opacity: 0.7; }
 @keyframes rise { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
-.panel-top { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 12px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); border-bottom: 2px solid var(--line); }
+.panel-top { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: max(12px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); border-bottom: 2px solid var(--line); }
 .panel-top h2 { font-size: 22px; }
 .panel-top > div { display: grid; gap: 1px; min-width: 0; }
 .close-btn { width: 38px; height: 38px; border-radius: var(--radius); background: var(--panel-2); border: 2px solid var(--line); font-weight: 800; font-size: 16px; box-shadow: 0 3px 0 var(--bg-deep); }
@@ -814,7 +814,7 @@ svg.line-chart .axis.end { text-anchor: end; }
 .cal-k.some { background: #5a4a2a; } .cal-k.met { background: #4f7a3a; }
 
 /* health, top left under the pause button */
-.hp-pill { position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); top: calc(max(10px, env(safe-area-inset-top, 0px)) + 44px); pointer-events: none;
+.hp-pill { pointer-events: none; align-self: flex-start;
   display: flex; align-items: center; gap: 6px; padding: 4px 8px 4px 6px; background: rgba(13, 11, 18, 0.75); border: 2px solid var(--line); border-radius: var(--radius); }
 .hp-pill .hp-ic { display: grid; color: #e8605a; font-size: 18px; }
 .hp-pill .hp-track { position: relative; width: 84px; height: 10px; background: rgba(0, 0, 0, 0.55); border-radius: 3px; overflow: hidden; }
@@ -824,9 +824,26 @@ svg.line-chart .axis.end { text-anchor: end; }
 .hp-pill.low .hp-track i { background: linear-gradient(#ff8a7a, #c8403a); }
 .hp-pill.low { animation: hp-low 0.8s ease-in-out infinite; } .hp-pill.low b { color: #ff8a7a; }
 @keyframes hp-low { 50% { border-color: #c8403a; } }
-.hud-top .hud-mid { display: flex; align-items: center; }
+.hud-top { align-items: flex-start; }
+.hud-top .hud-mid { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; } /* health, then the room dots under it */
 
 /* door plates (v0.16): small, under the door, so the door art shows */
 .door-tag .door-name { display: flex; align-items: center; gap: 4px; margin-top: 0; padding: 2px 7px 2px 5px; font-size: 13px; border: 1px solid color-mix(in srgb, var(--c) 40%, transparent); }
 .door-tag .door-name .gi { font-size: 16px; }
 .door-tag .skulls { font-size: 11px; padding: 1px 4px; }
+
+/* ---- installable app: the camp tip, the steps sheet, backup codes ---- */
+.install-hint { display: flex; align-items: stretch; gap: 0; margin: 2px max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px));
+  background: rgba(13, 11, 18, 0.82); border: 2px solid var(--gold); border-radius: var(--radius); animation: rise 0.25s; }
+.install-hint .ih-main { flex: 1; display: flex; align-items: center; gap: 10px; padding: 8px 10px; text-align: left; background: none; border: 0; color: var(--ink); }
+.install-hint .ih-main > .gi { font-size: 26px; color: var(--gold-2); flex: none; }
+.install-hint .ih-main > span { display: flex; flex-direction: column; gap: 1px; font-size: 14px; }
+.install-hint .ih-x { width: 40px; background: none; border: 0; border-left: 2px solid var(--line); color: var(--muted); font-size: 14px; }
+.install-steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; line-height: 1.4; }
+.install-steps .share-ic { display: inline-block; padding: 0 4px; border: 1px solid var(--muted); border-radius: 4px; font-size: 11px; }
+.save-code { width: 100%; box-sizing: border-box; resize: none; background: var(--bg-deep); color: var(--ink); border: 2px solid var(--line); border-radius: var(--radius);
+  padding: 8px; font: 12px/1.35 ui-monospace, Menlo, monospace; word-break: break-all; }
+.load-code { display: flex; flex-direction: column; gap: 8px; }
+.load-code[open] { gap: 8px; }
+.load-code summary { cursor: pointer; text-align: center; padding: 4px; }
+.load-code > * + * { margin-top: 8px; }

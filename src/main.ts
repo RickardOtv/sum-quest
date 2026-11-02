@@ -3,7 +3,13 @@
  * camp (HubScene, with HTML panels on top) and a run (RunScene).
  */
 import Phaser from 'phaser';
+import '@fontsource/barlow/latin-500.css';
+import '@fontsource/barlow/latin-600.css';
+import '@fontsource/barlow/latin-700.css';
+import '@fontsource/pixelify-sans/latin-500.css';
+import '@fontsource/pixelify-sans/latin-700.css';
 import './ui/styles.css';
+import { setupPwa } from './pwa';
 import { loadSave, save } from './state/save';
 import { BootScene } from './game/scenes/BootScene';
 import { HubScene, type StationId } from './game/scenes/HubScene';
@@ -22,6 +28,7 @@ function gameSize() {
 }
 
 async function boot() {
+  setupPwa();
   loadSave();
   try { await document.fonts.ready; } catch { /* fonts are optional */ }
 

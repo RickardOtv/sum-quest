@@ -1,0 +1,6 @@
+// Cloudflare deploy settings: the site is just the static files Vite builds into dist/.
+{
+  "name": "sumquest",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./dist" }
+}

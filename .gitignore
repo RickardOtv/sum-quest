@@ -1,4 +1,6 @@
 node_modules/
 dist/
 dist-single/
+docs-tmp/
 .DS_Store
+.wrangler/

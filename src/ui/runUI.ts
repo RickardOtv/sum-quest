@@ -26,12 +26,12 @@ export function showHud(handlers: { special: (index: number) => void; pause: () 
   onSpecialPress = handlers.special; onPausePress = handlers.pause;
   hud = html(`<div class="hud">
     <div class="hud-top">
-      <button class="icon-btn" id="pause" aria-label="Pause">❚❚</button>
       <div class="hud-mid">
         <div class="hp-pill" id="hp-pill"><span class="hp-ic">${gi('hearts')}</span><div class="hp-track"><i></i></div><b class="num">0</b></div>
         <div class="rooms"></div>
       </div>
       <div class="gold-pill"><span class="coin"></span><b class="num" id="run-gold">0</b></div>
+      <button class="icon-btn" id="pause" aria-label="Pause">❚❚</button>
     </div>
     <div class="fx-layer"></div><div class="door-layer"></div><div class="boss-name" hidden></div>
     <div class="perk-strip" id="perk-strip"></div>

@@ -138,6 +138,32 @@ export function persist() {
   try { localStorage.setItem(KEY, JSON.stringify(save)); } catch { /* ignore */ }
 }
 
+/* ---- backup codes: move a save to another phone/browser by copy-paste ---- */
+const CODE_PREFIX = 'SQ1-';
+const fromB64 = (s: string) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+async function pipe(bytes: Uint8Array, stream: CompressionStream | DecompressionStream) {
+  return new Uint8Array(await new Response(new Blob([bytes as BlobPart]).stream().pipeThrough(stream)).arrayBuffer());
+}
+
+/** The whole save as one text code (gzip + base64). */
+export async function exportSaveCode(): Promise<string> {
+  const json = new TextEncoder().encode(JSON.stringify(save));
+  const packed = await pipe(json, new CompressionStream('gzip'));
+  let s = ''; // chunked, so a long save doesn't overflow String.fromCharCode's argument limit
+  for (let i = 0; i < packed.length; i += 0x8000) s += String.fromCharCode(...packed.subarray(i, i + 0x8000));
+  return CODE_PREFIX + btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/** Replace this device's save with the one in `code`. Throws if the code isn't a Sum Quest save. */
+export async function importSaveCode(code: string) {
+  const clean = code.trim().replace(/\s+/g, '');
+  if (!clean.startsWith(CODE_PREFIX)) throw new Error('not a save code');
+  const json = new TextDecoder().decode(await pipe(fromB64(clean.slice(CODE_PREFIX.length)), new DecompressionStream('gzip')));
+  const data = JSON.parse(json);
+  if (typeof data !== 'object' || !data || !('gold' in data) || !('skills' in data)) throw new Error('not a save code');
+  localStorage.setItem(KEY, json); // loadSave() repairs and migrates it on the next start
+}
+
 export function resetSave() {
   save = fresh();
   save.seenIntro = true;
