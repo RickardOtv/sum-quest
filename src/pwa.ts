@@ -39,6 +39,7 @@ export function setupPwa() {
   addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e as InstallPromptEvent; });
   // Saved progress shouldn't be cleared when the phone runs low on space (installed apps usually get this).
   navigator.storage?.persist?.().catch(() => {});
+  watchForUpdates();
   // The offline copy is only for the public build: not in dev, not in the single-file preview.
   if (import.meta.env.PROD && import.meta.env.MODE !== 'single' && 'serviceWorker' in navigator && !inFrame()) {
     addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
@@ -59,4 +60,31 @@ export function wantsInstallHint(): boolean {
 }
 export function snoozeInstallHint(forever = false) {
   try { localStorage.setItem(HINT_KEY, forever ? 'never' : String(Date.now() + SNOOZE_DAYS * 864e5)); } catch { /* ignore */ }
+}
+
+/* ---- noticing a new version: the app checks version.json when it opens or comes back to the front ---- */
+export const BUILD_ID = __BUILD_ID__;
+let newVersion = false;
+const listeners: (() => void)[] = [];
+/** Is a newer build live than the one running? */
+export const updateReady = () => newVersion;
+/** Call `fn` when a newer build is found. */
+export const onUpdateReady = (fn: () => void) => { listeners.push(fn); };
+
+async function checkForUpdate() {
+  if (newVersion || BUILD_ID === 'dev' || import.meta.env.MODE === 'single' || !navigator.onLine) return;
+  try {
+    const res = await fetch('./version.json', { cache: 'no-store' });
+    if (!res.ok) return;
+    const { build } = await res.json() as { build?: string };
+    if (build && build !== BUILD_ID) { newVersion = true; listeners.forEach(f => f()); }
+  } catch { /* offline or blocked: try again next time */ }
+}
+/** Restart into the new version (the page is always fetched fresh when online). */
+export function applyUpdate() { location.reload(); }
+
+export function watchForUpdates() {
+  setTimeout(checkForUpdate, 4000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForUpdate(); });
+  setInterval(checkForUpdate, 30 * 60 * 1000);
 }

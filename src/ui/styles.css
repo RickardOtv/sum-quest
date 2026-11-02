@@ -866,3 +866,5 @@ svg.line-chart .axis.end { text-anchor: end; }
 .made-by b { font-family: var(--display); font-weight: 500; font-size: 20px; }
 .made-by a { color: var(--gold-2); font-size: 14px; }
 .sheet a { color: var(--gold-2); }
+.update-card { border-color: var(--good); }
+.update-card .ih-main > .gi { color: var(--good); }

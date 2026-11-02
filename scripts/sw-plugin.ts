@@ -14,7 +14,7 @@ import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import type { Plugin } from 'vite';
 
-const SKIP = new Set(['sw.js', '_headers', '_redirects']);
+const SKIP = new Set(['sw.js', 'version.json', '_headers', '_redirects']);
 
 function filesIn(dir: string, root = dir): string[] {
   return readdirSync(dir).flatMap(name => {
@@ -23,11 +23,13 @@ function filesIn(dir: string, root = dir): string[] {
   });
 }
 
-export function serviceWorker(outDir: string): Plugin {
+export function serviceWorker(outDir: string, buildId: string): Plugin {
   return {
     name: 'sumquest-service-worker',
     apply: 'build',
     closeBundle() {
+      // version.json: the app fetches it to notice when a newer build is live (see src/pwa.ts)
+      writeFileSync(join(outDir, 'version.json'), JSON.stringify({ build: buildId }) + '\n');
       const files = filesIn(outDir).filter(f => !SKIP.has(f));
       const hash = createHash('sha256');
       for (const f of files.sort()) hash.update(f).update(readFileSync(join(outDir, f)));
@@ -46,7 +48,8 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   const req = e.request;
-  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  const url = new URL(req.url);
+  if (req.method !== 'GET' || url.origin !== location.origin || url.pathname.endsWith('/version.json')) return; // the version check always asks the server
   if (req.mode === 'navigate') { // the page: fresh when online, saved copy when offline
     e.respondWith(fetch(req).then(res => { const copy = res.clone(); caches.open(CACHE).then(c => c.put('./', copy)); return res; })
       .catch(() => caches.match('./')));
