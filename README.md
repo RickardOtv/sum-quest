@@ -27,7 +27,7 @@ full screen and an offline copy (`sw.js`, written at build time by `scripts/sw-p
 - `public/manifest.webmanifest` name, colours and icons for the home screen
 - `public/icons/` app icons, made by `python3 scripts/make_icons.py` from the hero sprite
 - `public/_headers` cache rules (the page and `sw.js` are always re-checked, so updates arrive on the next start)
-- `version.json` (written at build time) the build's name; the app checks it when opened or brought back to the front and shows "New version ready" in camp. Settings shows the running version.
+- `version.json` (written at build time) the build's name; the app checks it when opened or brought back to the front and shows "New version ready" in camp. Settings shows the running version: the number comes from `version` in `package.json` (bump it for each release, e.g. 0.31.0 → 0.32.0).
 - `wrangler.jsonc` Cloudflare settings (the site is the `dist/` folder)
 - `src/pwa.ts` service worker registration, "installed?" checks, Android's install prompt
 - `src/ui/install.ts` the "Add to your home screen" tip in camp and the steps sheet

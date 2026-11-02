@@ -64,6 +64,8 @@ export function snoozeInstallHint(forever = false) {
 
 /* ---- noticing a new version: the app checks version.json when it opens or comes back to the front ---- */
 export const BUILD_ID = __BUILD_ID__;
+/** What Settings shows: "0.31 · built 2026-11-02". */
+export const VERSION_LABEL = `${__VERSION__} · built ${__BUILT__}`;
 let newVersion = false;
 const listeners: (() => void)[] = [];
 /** Is a newer build live than the one running? */

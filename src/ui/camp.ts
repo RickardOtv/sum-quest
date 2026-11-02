@@ -122,7 +122,9 @@ function heroStage(o: StageOpts): HTMLElement {
       <div class="slot-col" data-side="right"></div>
       <div class="stage-foot">${o.foot}</div>
     </div></section>`);
-  el.querySelector('.stage-hero')!.prepend(heroCanvas(6));
+  // the hero at the biggest whole-pixel size that fits between the two slot columns (crisp pixels on any phone)
+  const room = Math.min(460, document.getElementById('app')!.clientWidth) - 32 - 20 - 2 * 60 - 2 * 10;
+  el.querySelector('.stage-hero')!.prepend(heroCanvas(Math.max(3, Math.min(6, Math.floor(room / 36)))));
   const blocked = blockedSlot();
   const slotButton = (slot: (typeof SLOTS)[number]) => {
     const it = equippedItem(slot);
