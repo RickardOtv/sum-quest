@@ -13,11 +13,17 @@ export const isInstalled = () =>
 /** iPhone / iPad (iPadOS reports itself as a Mac with touch). */
 export const isIos = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.userAgent.includes('Mac') && navigator.maxTouchPoints > 1);
 
+/** Android phone or tablet. */
+export const isAndroid = () => /Android/i.test(navigator.userAgent);
+
 /** True inside an iframe (like the claude.ai preview link), where installing isn't possible. */
 const inFrame = () => { try { return window.self !== window.top; } catch { return true; } };
 
 interface InstallPromptEvent extends Event { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }>; }
 let deferredPrompt: InstallPromptEvent | null = null;
+
+/** A phone that could put the game on its home screen but hasn't yet. */
+export const couldInstallOnPhone = () => !isInstalled() && !inFrame() && (isIos() || isAndroid());
 
 /** Can we show an install offer at all here? (iOS: steps to follow; Android/desktop Chrome: a real prompt.) */
 export const canOfferInstall = () => !isInstalled() && !inFrame() && (isIos() || deferredPrompt !== null);

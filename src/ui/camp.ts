@@ -4,6 +4,7 @@
  * notice board (Progress), the meditation stone (skills, tree, loadouts)
  * and the "head out" sheet that starts a run.
  */
+import { couldInstallOnPhone, isIos } from '../pwa';
 import { SLOT_ICON, gi, giEl } from './icons';
 import { CONFIG, forgeChance } from '../config';
 import { TIER_LABEL, pickProblem } from '../math/problems';
@@ -541,17 +542,27 @@ function trainingTab(body: HTMLElement) {
   body.appendChild(deck);
 }
 
-/* ---------------- first launch ---------------- */
-export function showIntro() {
+/* ---------------- first launch (also Settings → How to play) ---------------- */
+/** The home-screen steps for this phone, or '' when they don't apply (desktop, already installed). */
+function installHowTo(): string {
+  if (!couldInstallOnPhone()) return '';
+  const steps = isIos()
+    ? `In <b>Safari</b>, tap <b>•••</b> next to the address bar → <b>Share</b> → <b>Add to Home Screen</b>, keep <b>Open as Web App</b> on and tap <b>Add</b>. (Older iPhones: the Share button is at the bottom.)`
+    : `In <b>Chrome</b>, tap <b>⋮</b> (top right) → <b>Add to Home screen</b> or <b>Install app</b>.`;
+  return `<li><b>Play it like an app:</b> ${steps} Then start Sum Quest from its new icon: full screen, works offline, and your progress stays safe.</li>`;
+}
+
+export function showIntro(done: () => void = () => {}) {
   const s = openSheet(`<span class="label center">Welcome</span><h2>Sum Quest</h2>
     <ul class="how"><li><b>Fight like Archero:</b> move to dodge, stand still to attack.</li>
     <li><b>Math is your power.</b> Crits ask a quick pick-one question and specials ask you to type the answer. You choose how hard.</li>
     <li><b>Loot:</b> open chests by solving a problem. Harder problems and closer answers give rarer gear.</li>
     <li><b>Lost a run?</b> You keep the gold and chests. Gear up and come back stronger.</li>
-    <li><b>The camp:</b> walk to the anvil, the yard, the board or the stone to use them. The path north starts a run.</li></ul>
-    <p class="note small center">You have a chest waiting in your Bag.</p>
-    <button class="btn primary" id="go">Let's go</button>`);
-  const go = () => { release(); save.seenIntro = true; persist(); s.remove(); };
+    <li><b>The camp:</b> walk to the anvil, the yard, the board or the stone to use them. The path north starts a run.</li>
+    ${installHowTo()}</ul>
+    ${save.seenIntro ? '' : '<p class="note small center">You have a chest waiting in your Bag.</p>'}
+    <button class="btn primary" id="go">${save.seenIntro ? 'Got it' : "Let's go"}</button>`);
+  const go = () => { release(); save.seenIntro = true; persist(); s.remove(); done(); };
   s.querySelector('#go')!.addEventListener('click', go);
   const release = pushKeys(e => { if (e.key === 'Enter') { go(); return true; } return true; }); // swallow every key while the intro is up
 }
