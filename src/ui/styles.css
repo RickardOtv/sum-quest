@@ -860,3 +860,9 @@ svg.line-chart .axis.end { text-anchor: end; }
 .load-code[open] { gap: 8px; }
 .load-code summary { cursor: pointer; text-align: center; padding: 4px; }
 .load-code > * + * { margin-top: 8px; }
+
+/* Settings: who made the game */
+.made-by { display: grid; justify-items: center; gap: 2px; padding: 10px; background: var(--bg-deep); border-radius: var(--radius); }
+.made-by b { font-family: var(--display); font-weight: 500; font-size: 20px; }
+.made-by a { color: var(--gold-2); font-size: 14px; }
+.sheet a { color: var(--gold-2); }

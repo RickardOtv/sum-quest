@@ -82,3 +82,6 @@ export const CONFIG = {
 
 export const forgeChance = (tier: number, size: number) =>
   Math.max(0.05, CONFIG.forge.chanceByTier[tier] - CONFIG.forge.penaltyBySize[size]);
+
+/** Who made the game: shown in Settings and at the bottom of How to play. */
+export const MADE_BY = { name: 'RickardOtv', github: 'https://github.com/RickardOtv' };

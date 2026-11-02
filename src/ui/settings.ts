@@ -1,4 +1,5 @@
 /** The settings sheet (cog, top right in camp): currency, install as app, save backup, reset, credits. */
+import { MADE_BY } from '../config';
 import { setCurrency } from '../math/problems';
 import { canOfferInstall } from '../pwa';
 import { exportSaveCode, importSaveCode, persist, resetSave, save } from '../state/save';
@@ -14,6 +15,7 @@ export function openSettings(done: () => void = () => {}) {
     <button class="btn" id="how">How to play</button>
     <button class="btn" id="backup">${gi('save')} Backup save</button>
     <button class="btn ghost" id="reset" style="color:var(--bad)">Reset all progress</button>
+    <div class="made-by"><span class="label">Made by</span><b>${MADE_BY.name}</b><a href="${MADE_BY.github}" target="_blank" rel="noopener">${MADE_BY.github.replace('https://', '')} ↗</a></div>
     <p class="note small">Your progress is saved only on this device (no account, no tracking). Credits: hero sprite by <a href="https://xzany.itch.io/top-down-adventurer-character" target="_blank" rel="noopener">Mattz Art</a> · icons by Lorc, Delapouite and contributors at <a href="https://game-icons.net" target="_blank" rel="noopener">game-icons.net</a> (<a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>)</p>
     <button class="btn primary" id="close">Done</button>`);
   const close = () => { release(); sheet.remove(); done(); };

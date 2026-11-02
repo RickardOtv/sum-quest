@@ -6,7 +6,7 @@
  */
 import { couldInstallOnPhone, isIos } from '../pwa';
 import { SLOT_ICON, gi, giEl } from './icons';
-import { CONFIG, forgeChance } from '../config';
+import { CONFIG, MADE_BY, forgeChance } from '../config';
 import { TIER_LABEL, pickProblem } from '../math/problems';
 import { effectiveBox, getSkill } from '../math/mastery';
 import { planFocus, recommendedTier } from '../math/adaptive';
@@ -561,6 +561,7 @@ export function showIntro(done: () => void = () => {}) {
     <li><b>The camp:</b> walk to the anvil, the yard, the board or the stone to use them. The path north starts a run.</li>
     ${installHowTo()}</ul>
     ${save.seenIntro ? '' : '<p class="note small center">You have a chest waiting in your Bag.</p>'}
+    <p class="note small center">Made by <a href="${MADE_BY.github}" target="_blank" rel="noopener">${MADE_BY.name}</a></p>
     <button class="btn primary" id="go">${save.seenIntro ? 'Got it' : "Let's go"}</button>`);
   const go = () => { release(); save.seenIntro = true; persist(); s.remove(); done(); };
   s.querySelector('#go')!.addEventListener('click', go);
