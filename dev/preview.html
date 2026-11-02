@@ -1,0 +1,18 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Sum Quest · gear preview</title>
+<style>
+  body { background: #15141c; margin: 0; padding: 14px; font: 13px system-ui, sans-serif; color: #cfc9d8; }
+  h2 { font-size: 14px; margin: 18px 0 8px; color: #e8dfb0; }
+  canvas { image-rendering: pixelated; vertical-align: middle; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+  .cell { text-align: center; background: #1d1c26; padding: 6px; border-radius: 8px; }
+  .cell small { display: block; color: #8d879b; margin-top: 4px; }
+  .items { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .item { display: flex; align-items: center; gap: 8px; background: #1d1c26; padding: 6px 8px; border-radius: 8px; border-left: 3px solid var(--rc, #555); }
+  .item span { font-size: 12px; }
+  .builder { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  select { background: #26242f; color: #ddd; border: 1px solid #3a3846; border-radius: 6px; padding: 4px 6px; }
+</style></head><body>
+<h2>Outfit builder</h2><div class="builder" id="builder"></div><div class="row" id="built"></div>
+<h2>Sets</h2><div id="sets"></div>
+<h2>Every item (icon as in the Bag)</h2><div class="items" id="items"></div>
+<script type="module" src="./preview.ts"></script></body></html>
