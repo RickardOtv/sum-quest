@@ -333,7 +333,7 @@ details.missed > summary { cursor: pointer; }
 .slot-btn .info .note { font-size: 12px; }
 .slot-btn .glyph { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; font-size: 22px; color: #e2d5ff; background: radial-gradient(circle at 40% 35%, #4a3f7a, #1d1b27 70%); }
 .slot-btn .info { display: grid; gap: 1px; min-width: 0; }
-.slot-btn .info b { font-size: 14px; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot-btn .info b { font-size: 14px; line-height: 1.15; overflow-wrap: anywhere; } /* long names wrap to 2 lines instead of "Chain Lightni…" */
 .slot-btn .label { font-size: 10px; letter-spacing: 0.08em; }
 kbd.key { margin-left: 4px; padding: 0 4px; color: inherit; opacity: 0.8; border: 1px solid currentColor; border-radius: 3px; text-transform: none; letter-spacing: 0; } /* the key next to "Slot 1 / Slot 2" */
 .slot-btn.empty { border-style: dashed; border-color: var(--line); } .slot-btn.empty .glyph { color: var(--muted); background: var(--bg-deep); }
