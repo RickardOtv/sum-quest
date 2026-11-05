@@ -157,6 +157,7 @@ export class HubScene extends Phaser.Scene {
     this.keys = k.addKeys({ up: 'UP', down: 'DOWN', left: 'LEFT', right: 'RIGHT', w: 'W', a: 'A', s: 'S', d: 'D' }, false) as typeof this.keys;
     k.on('keydown-E', () => { if (this.near && !this.locked) this.activate(this.near); });
     k.on('keydown-ENTER', () => { if (this.near && !this.locked) this.activate(this.near); });
+    k.on('keydown-SPACE', () => { if (this.near && !this.locked) this.activate(this.near); });
     k.on('keydown-I', () => { if (!this.locked) this.open('bag'); });
     // Drag anywhere = thumb-stick. A short tap = walk there (or to the station you tapped).
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {

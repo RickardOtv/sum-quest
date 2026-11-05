@@ -16,7 +16,7 @@ npm test             # unit tests (Vitest): src/**/*.test.ts
 Controls in camp: drag to walk or tap a place to walk there (WASD/arrows on desktop), E/Enter = use the station
 you're standing at, I = Bag (big button top left), Esc = close a panel. Settings (currency, reset, credits) are behind
 the cog, top right. In a run: drag to move, stand still to attack,
-Space / E = skill 1 / 2, 1–3 = crit answer, digits + Enter = typed answers, Esc = pause.
+Space / E = skill 1 / 2, 1–3 = crit answer, digits + Enter (or Space) = typed answers / confirm, Esc = pause.
 Dev shortcuts (only with `npm run dev`): `?boss` jumps to the boss, `?super` makes every crit a super crit.
 
 ## Publishing (Cloudflare)

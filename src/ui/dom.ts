@@ -28,8 +28,11 @@ window.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   // a focused text field keeps its keys, except Enter/Escape which the sheet may want
   if ((e.target as HTMLElement).matches?.('input, textarea') && e.key !== 'Enter' && e.key !== 'Escape') return;
-  // newest handler first; the first one that handles the key wins
-  for (let i = keyStack.length - 1; i >= 0; i--) { if (keyStack[i](e)) { e.preventDefault(); return; } }
+  // newest handler first; the first one that handles the key wins.
+  // Space doubles as Enter (one-handed play): a handler that ignores Space gets it again as Enter,
+  // so the top-most prompt confirms, while the run HUD (which uses Space for skill 1) keeps it.
+  const asEnter = e.key === ' ' ? new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter' }) : null;
+  for (let i = keyStack.length - 1; i >= 0; i--) { if (keyStack[i](e) || (asEnter && keyStack[i](asEnter))) { e.preventDefault(); return; } }
 });
 
 /* ---------- overlays (modal sheets) ---------- */
@@ -147,8 +150,8 @@ export function askTyped(ask: TypedAsk): Promise<TypedResult | null> {
       conf.querySelectorAll<HTMLButtonElement>('[data-c]').forEach(b => b.addEventListener('click', () => choose(b.dataset.c === '1')));
       releaseConf = pushKeys(e => {
         const k = e.key.toLowerCase();
-        if (k === 's' || k === 'enter') { choose(true); return true; }
-        if (k === 'n' || k === ' ') { choose(false); return true; }
+        if (k === 's' || k === 'enter') { choose(true); return true; } // Space arrives here as Enter
+        if (k === 'n') { choose(false); return true; }
         return false;
       });
     } else showPad();
