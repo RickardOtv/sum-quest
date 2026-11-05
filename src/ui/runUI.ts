@@ -176,7 +176,7 @@ export interface ChoiceResult { kind: AnswerKind; seconds: number; timedOut: boo
 export function askChoice(p: Problem, windowSec: number, isSuper = false): Promise<ChoiceResult> {
   const options = makeChoices(p);
   const sheet = openSheet(`
-    <div class="crit-head"><span class="label ${isSuper ? 'super' : 'gold'}">${isSuper ? 'Super crit!' : 'Critical hit!'}</span><span class="label">${p.tier > 1 ? `<span class="t${p.tier}c">${TIER_LABEL[p.tier]} · ×${CONFIG.critByTier.damageMult[p.tier]} damage</span>` : isSuper ? 'time slows · nothing can touch you' : 'time is frozen · pick an answer'}</span></div>
+    <div class="crit-head"><span class="label ${isSuper ? 'super' : 'gold'}">${isSuper ? 'Super crit!' : 'Critical hit!'}</span><span class="label">${p.tier > 1 ? `<span class="t${p.tier}c">${TIER_LABEL[p.tier]} · ×${CONFIG.critByTier.damageMult[p.tier]} damage</span>` : isSuper ? 'time slows · nothing can touch you' : 'a moment of clarity · pick the true sum'}</span></div>
     <div class="q">${esc(p.text)}${p.hint ? ` <small>${esc(p.hint)}</small>` : ''}</div>
     <div class="timer"><i style="animation-duration:${windowSec}s"></i></div>
     <div class="choices">${options.map((o, i) => `<button data-i="${i}"><kbd>${i + 1}</kbd>${esc((p.prefix ?? '') + fmtValue(p, o) + (p.suffix ?? ''))}</button>`).join('')}</div>`,
@@ -226,7 +226,7 @@ export async function askSpecial(skill: Skill, gearCalm: number, perks: PerkLeve
 export function explainResult(p: Problem, kind: AnswerKind, seconds: number, extra = '') {
   if (kind === 'exact') feedback(`<b class="ok">✓ ${seconds.toFixed(1)}s</b>${extra}`, 2);
   else if (kind === 'close') feedback(`<b class="warn">≈ Close · it's ${answerText(p)}</b>${extra}`, 2.5);
-  else feedback(`<b class="bad">✗ It's ${answerText(p)}</b>`, 2.5);
+  else feedback(`<b class="bad">✗ Fizzled · it's ${answerText(p)}</b>`, 2.5);
 }
 
 export interface Missed { text: string; answer: string; explain: string; }
@@ -267,7 +267,7 @@ export interface RunSummary {
 export function runEnd(s: RunSummary): Promise<'again' | 'camp' | 'forge' | 'bag'> {
   const title = s.outcome === 'won' ? `${esc(s.boss)} falls!` : s.outcome === 'fled' ? 'Back to camp' : `Fallen in ${esc(s.zone)}, room ${s.room + 1}`;
   const pct = s.answered ? Math.round((s.exact / s.answered) * 100) : 0;
-  const sheet = openSheet(`<div class="label center">${s.outcome === 'won' ? 'The journey is complete' : s.bosses ? `Run over · ${s.bosses} boss${s.bosses > 1 ? 'es' : ''} beaten` : 'Run over'}</div><h2>${title}</h2>
+  const sheet = openSheet(`<div class="label center">${s.outcome === 'won' ? 'Emberfall\'s fire is out' : s.bosses ? `Run over · ${s.bosses} boss${s.bosses > 1 ? 'es' : ''} beaten` : 'Run over'}</div><h2>${title}</h2>
     <div class="results">
       <div><span class="label">Gold</span><b class="num">+${s.gold}</b></div>
       <div><span class="label">Correct</span><b class="num">${pct}%</b></div>

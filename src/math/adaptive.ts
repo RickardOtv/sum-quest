@@ -10,7 +10,7 @@
  * most are chosen — weak ones, fading ones, then new ones — and the problem
  * picker weights them up so the plan shown on Progress is what you get.
  */
-import { CATEGORIES, GENERATORS, TIER_TARGET, generatorByKey, setFocusGenerators, type Category } from './problems';
+import { CATEGORIES, GENERATORS, PRACTICE_GENERATORS, TIER_TARGET, generatorByKey, setFocusGenerators, type Category } from './problems';
 import { getSkill, recall, statusOf, struggleScore, type AnswerKind } from './mastery';
 import { save } from '../state/save';
 
@@ -22,7 +22,7 @@ export interface Adaptive { level: number; acc: number; n: number }
 
 const UP_AT = 0.9, DOWN_AT = 0.72, MIN_SAMPLE = 6;
 /** Highest tier that has problems in each category (times-table facts stop at tier 2). */
-const MAX_TIER: Record<Category, number> = Object.fromEntries(CATEGORIES.map(c => [c, Math.max(...GENERATORS.filter(g => g.category === c).map(g => g.tier))])) as Record<Category, number>;
+const MAX_TIER: Record<Category, number> = Object.fromEntries(CATEGORIES.map(c => [c, Math.max(...PRACTICE_GENERATORS.filter(g => g.category === c).map(g => g.tier))])) as Record<Category, number>;
 
 /** Fold one answer into its category. Called for every answer in the game. */
 export function noteAnswer(genKey: string, tier: number, kind: AnswerKind) {
@@ -70,7 +70,7 @@ export function planFocus(): FocusItem[] {
   const taken = new Set<string>();
   const add = (g: FocusItem['g'], why: FocusWhy) => { if (!taken.has(g.key)) { taken.add(g.key); out.push({ g, why }); } };
 
-  const tried = GENERATORS.filter(g => (getSkill(g.key)?.n ?? 0) >= 3);
+  const tried = PRACTICE_GENERATORS.filter(g => (getSkill(g.key)?.n ?? 0) >= 3);
   const recentAcc = (g: FocusItem['g']) => { const h = getSkill(g.key)!.hist.slice(-8); return h.reduce((a, [c]) => a + c, 0) / h.length; };
   tried.filter(g => statusOf(getSkill(g.key)) === 'struggling' || recentAcc(g) < 0.8)
     .sort((a, b) => struggleScore(getSkill(b.key)!, TIER_TARGET[b.tier]) - struggleScore(getSkill(a.key)!, TIER_TARGET[a.tier]))
@@ -81,7 +81,7 @@ export function planFocus(): FocusItem[] {
   if (fading.length) add(fading[0], 'rusty');
 
   if (out.length < 3) {
-    const fresh = GENERATORS.filter(g => !(getSkill(g.key)?.n) && g.tier <= recommendedTier(g.category));
+    const fresh = PRACTICE_GENERATORS.filter(g => !(getSkill(g.key)?.n) && g.tier <= recommendedTier(g.category));
     if (fresh.length) add(fresh[Math.floor(Math.random() * fresh.length)], 'new');
   }
   currentFocus = out.slice(0, 3);

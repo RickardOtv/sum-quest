@@ -216,7 +216,7 @@ export class RunScene extends Phaser.Scene {
     if (entered) ui.banner(zone.name, zone.blurb, 'land'); // you just walked into a new zone
     else if (spec.reward === 'boss') ui.banner(zone.bossName, `Room ${n} · ${zone.bossSub}`, 'boss');
     else if (spec.reward === 'miniboss') ui.banner(zone.minibossName, `Room ${n} · ${zone.minibossTip}`, 'mini');
-    else ui.banner(spec.reward === 'training' ? 'Training room' : `Room ${n}`, spec.reward === 'training' ? 'learn a trick' : `${zone.name} · danger ${spec.difficulty} of 3`);
+    else ui.banner(spec.reward === 'training' ? 'Training room' : `Room ${n}`, spec.reward === 'training' ? 'learn a shortcut' : `${zone.name} · danger ${spec.difficulty} of 3`);
 
     if (spec.reward === 'training') { this.roomActive = false; this.time.delayedCall(500, () => this.trainingRoom()); return; }
 
@@ -811,7 +811,7 @@ export class RunScene extends Phaser.Scene {
     if (c.state === 'fizzle') {
       this.crit = null;
       this.tweens.add({ targets: c.img, alpha: 0, scale: 0.5, duration: 250, onComplete: () => c.img.destroy() });
-      this.floatText(c.x, c.y, 'miss', '#8a8478', 14);
+      this.floatText(c.x, c.y, 'fizzle', '#8a8478', 14);
       return;
     }
     if (c.state === 'pending' && (d < 18 || c.speed === 0)) return; // hover until answered

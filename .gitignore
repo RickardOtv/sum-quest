@@ -4,3 +4,5 @@ dist-single/
 docs-tmp/
 .DS_Store
 .wrangler/
+.worktrees/
+.playwright-mcp/

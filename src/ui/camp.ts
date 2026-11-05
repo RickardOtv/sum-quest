@@ -36,17 +36,17 @@ let actions: CampActions;
 let releaseKeys: (() => void) | null = null;
 let bagFilter = 'all'; // remembered while the panel is open
 const TAB_TITLE: Record<CampTab, [string, string]> = {
-  bag: ['Bag', 'gear, chests and what you wear'], forge: ['Forge', "Brannoc's smithy"], training: ['Training yard', "Ysolde's yard"],
-  progress: ['Notice board', 'your progress'], skills: ['Meditation', "Old Ferrin's clearing"],
+  bag: ['Bag', 'gear, chests and what you wear'], forge: ['Forge', "Brannoc's smithy"], training: ['Training yard', "Ysolde's yard · shortcuts"],
+  progress: ['Notice board', 'what you can reckon'], skills: ['Meditation', "Old Ferrin's Counting Stone"],
 };
 
 /** One line shown the first time each panel opens (seen ones are kept in the save). */
 const FIRST_TIP: Record<CampTab, string> = {
   bag: 'Tap a chest to open it. Tap a slot or an item to change what you wear.',
-  forge: 'Pick a piece below, then Forge. A harder problem makes it more likely to hold.',
-  training: 'Lessons teach a shortcut. Finish one for gold and a skill point.',
+  forge: 'Pick a piece, then Forge. Steel holds a true sum. Harder sums hold better.',
+  training: 'Each lesson is a shortcut for writing sums. Finish one for gold and a skill point.',
   progress: 'What you know, what is fading, and your records.',
-  skills: 'Spend skill points in the tree. Tap a slot to choose the skills you take on a run.',
+  skills: 'Spend points to inscribe spells on the stone. Tap a slot to pick the two you carry.',
 };
 let tipFor: CampTab | null = null; // the panel whose tip shows during this visit
 
@@ -94,7 +94,7 @@ export function showHeadOut(a: CampActions) {
       <div class="zone-art"></div>
       <div class="zone-info">
         <span class="label">The journey</span><h1>Thornwood</h1>
-        <p class="note">${ZONE_ROOMS - 1} rooms of forest, then Old Rootback. Beat him and the only path leads on, out of the forest${save.bestRoom > ZONE_ROOMS ? ' into <b>Emberfall</b>, the burning village' : '… to somewhere smoky'}.</p>
+        <p class="note">${ZONE_ROOMS - 1} rooms of miscounts, then Old Rootback, the tree that lost count. Beat him and the only path leads on, out of the forest${save.bestRoom > ZONE_ROOMS ? ' into <b>Emberfall</b>, the burning village' : '… to somewhere smoky'}.</p>
         ${ZONE_LIST.map((id, z) => {
           const zone = ZONES[id], seen = save.bestRoom > z * ZONE_ROOMS || z === 0;
           return `<div class="journey${seen ? '' : ' unseen'}"><span>${seen ? esc(zone.name) : '???'}</span><div class="dots">${Array.from({ length: ZONE_ROOMS }, (_, i) => {
@@ -333,7 +333,7 @@ function openNode(id: NodeId) {
 
 /** The "?" next to your points: what they're for and where they come from. */
 function pointsInfo() {
-  const sheet = openSheet(`<h2>${GEM} Skill points</h2><p class="note center">Each point unlocks a node in the tree or raises it one level.</p>
+  const sheet = openSheet(`<h2>${GEM} Skill points</h2><p class="note center">Each point inscribes a new spell on the stone, or deepens one.</p>
     <ul class="how"><li><b>Finish a Training lesson:</b> 3 of 4 right in camp, 2 of 2 in a run (once per lesson)</li>
     <li><b>Master a lesson:</b> get it to 3 stars (once per lesson)</li>
     <li><b>Beat a boss</b> (every time)</li>
@@ -345,7 +345,7 @@ function pointsInfo() {
 }
 
 function openRebirth() {
-  const c = openSheet(`<h2>Rebirth</h2><p class="note center">Refund <b>${refundablePoints()}</b> point${refundablePoints() === 1 ? '' : 's'} for <b>${respecCost()} gold</b>? Nova and Ward stay at Lv 1. The price goes up each time.</p>
+  const c = openSheet(`<h2>Rebirth</h2><p class="note center">Wipe the stone clean? Get back <b>${refundablePoints()}</b> point${refundablePoints() === 1 ? '' : 's'} for <b>${respecCost()} gold</b>. Nova and Ward stay at Lv 1. The price goes up each time.</p>
     <div class="row2"><button class="btn" id="no">Keep my tree</button><button class="btn primary" id="yes" ${save.gold >= respecCost() && refundablePoints() > 0 ? '' : 'disabled'}>Rebirth</button></div>
     ${save.gold < respecCost() ? '<p class="note small center">Not enough gold.</p>' : ''}`);
   const close = () => { release(); c.remove(); };
@@ -497,7 +497,7 @@ async function forgeSolve(it: Item, size: number, tier: number) {
   const refund = { gold: Math.floor(cost.gold * CONFIG.forge.refundOnFail), scrap: Math.floor(cost.scrap * CONFIG.forge.refundOnFail) };
   if (success) it.level += size; else { save.gold += refund.gold; save.scrap += refund.scrap; }
   persist(); vibrate(success ? [30, 40, 30] : 80);
-  const sheet = openSheet(`<h2>${success ? 'The steel holds!' : 'The metal cracked'}</h2>
+  const sheet = openSheet(`<h2>${success ? 'The steel holds!' : 'The sum was off. The metal cracked'}</h2>
     <p class="center">${r.kind === 'exact' ? '<b class="ok">Exact answer</b>' : `<b class="${r.kind === 'close' ? 'warn' : 'bad'}">${r.kind === 'close' ? 'Close' : 'Miss'}: it's ${esc(answerText(p))}</b>`}</p>
     <p class="note center">${esc(p.explain)}</p>
     <p class="center">${success ? `${esc(baseById(it.baseId).name)} is now <b class="lvl">Lv ${it.level}</b>` : `Refunded ${refund.gold} gold and ${refund.scrap} scrap`}</p>
@@ -588,7 +588,7 @@ function installHowTo(): string {
 export function showIntro(done: () => void = () => {}) {
   const s = openSheet(`<span class="label center">Welcome</span><h2>Sum Quest</h2>
     <ul class="how"><li><b>Fight:</b> move to dodge, stand still to attack.</li>
-    <li><b>Math is your power:</b> crits, skills and chests ask a quick sum.</li>
+    <li><b>Math is magic:</b> the world lost its count. A true sum casts a spell. A wrong one just fizzles.</li>
     <li><b>Camp:</b> walk to a station to use it. The path north starts a run.</li>
     ${installHowTo()}</ul>
     ${save.seenIntro ? '' : '<p class="note small center">You have a chest waiting in your Bag.</p>'}

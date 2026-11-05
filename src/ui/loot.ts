@@ -33,7 +33,7 @@ const bestOdds = (odds: number[]) => { const rarePlus = odds.slice(2).reduce((a,
 export function openChestFlow(index: number, done: () => void, inRun = false) {
   const chestKind = save.chests[index] as ChestKind, chest = CHESTS[chestKind], rec = recommendedTier();
   const sheet = openSheet(`<div class="chest-art"></div>${inRun ? '<div class="label center">Room cleared · you found</div>' : ''}<h2>${chest.name}</h2>
-    <p class="note center">Solve a problem to open it. <b>Harder problems give better loot.</b> A close answer still helps (the closer the better), and an exact answer gives the best odds.</p>
+    <p class="note center">Sealed with a sum. Solve it to open. <b>Harder problems give better loot.</b> A close answer still helps (the closer the better), and an exact answer gives the best odds.</p>
     <div class="chest-tiers">${[1, 2, 3, 4].map(t => {
       const odds = rarityOdds(TIER_QUALITY[t] + chest.bonus, chest.minRarity);
       return `<button data-t="${t}" class="t${t} ${t === rec ? 'rec' : ''}"><kbd>${t === rec ? '↵' : t}</kbd><b>${TIER_LABEL[t]}</b>${oddsBar(odds)}<small>${bestOdds(odds)}${t === rec ? ' · <em>your level</em>' : ''}</small></button>`;

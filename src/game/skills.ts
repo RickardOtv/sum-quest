@@ -27,14 +27,14 @@ export interface Skill {
 
 export const SKILLS: Skill[] = [
   { id: 'nova', name: 'Nova', glyph: 'explosion-rays', category: 'everyday', tier: 2, recharge: 26, power: 10, short: 'Shockwave that hits every enemy', tip: 'Best against crowds.' },
-  { id: 'ward', name: 'Ward', glyph: 'magic-shield', category: 'addsub', tier: 1, recharge: 32, power: 5, short: 'Shield for 5 s and wipe all bullets', tip: 'Easy math, no damage. Saves you from bullet rings.' },
+  { id: 'ward', name: 'Ward', glyph: 'magic-shield', category: 'addsub', tier: 1, recharge: 32, power: 5, short: 'Shield for 5 s and wipe all bullets', tip: 'Held up by easy sums. No damage, wipes every bullet.' },
   { id: 'mend', name: 'Mend', glyph: 'health-increase', category: 'facts', tier: 1, recharge: 40, power: 30, short: 'Heal 30% of your HP', tip: 'For when a run is slipping away.' },
   { id: 'chain', name: 'Chain Lightning', glyph: 'lightning-branches', category: 'facts', tier: 2, recharge: 22, power: 6, short: 'Strikes the 3 nearest enemies hard', tip: 'Great against a few tough enemies.' },
   { id: 'frost', name: 'Frost Field', glyph: 'frozen-orb', category: 'everyday', tier: 3, recharge: 28, power: 6, short: 'Enemies move and shoot at 40% for 6 s', tip: 'Buys time to dodge and reposition.' },
-  { id: 'execute', name: "Executioner's Mark", glyph: 'executioner-hood', category: 'muldiv', tier: 3, recharge: 30, power: 28, short: 'One huge hit on your target', tip: 'The boss killer.' },
+  { id: 'execute', name: "Executioner's Mark", glyph: 'executioner-hood', category: 'muldiv', tier: 3, recharge: 30, power: 28, short: 'One huge hit on your target', tip: 'One big true sum, one big hit. Boss killer.' },
   { id: 'sight', name: 'Second Sight', glyph: 'third-eye', category: 'addsub', tier: 2, recharge: 20, power: 1, short: 'Your next crit is a super crit, right away', tip: 'Sets up a big moment.' },
-  { id: 'meteor', name: 'Meteor', glyph: 'meteor-impact', category: 'muldiv', tier: 4, recharge: 40, power: 24, short: 'Massive hit on everything', tip: 'Hardest math, biggest payoff.' },
-  { id: 'rift', name: 'Time Rift', glyph: 'time-trap', category: 'everyday', tier: 4, recharge: 38, power: 4, short: 'Freezes every enemy for 4 s, then they take damage', tip: 'Total control. Expert everyday math.' },
+  { id: 'meteor', name: 'Meteor', glyph: 'meteor-impact', category: 'muldiv', tier: 4, recharge: 40, power: 24, short: 'Massive hit on everything', tip: 'The hardest sum. Brings down the sky.' },
+  { id: 'rift', name: 'Time Rift', glyph: 'time-trap', category: 'everyday', tier: 4, recharge: 38, power: 4, short: 'Freezes every enemy for 4 s, then they take damage', tip: 'Expert everyday sums. Time itself agrees.' },
 ];
 
 export interface Passive { id: PassiveId; name: string; glyph: IconName; max: number; text: (lv: number) => string; }
@@ -50,9 +50,9 @@ export const PASSIVES: Passive[] = [
 export type NodeId = SkillEffect | PassiveId;
 export interface TreeBranch { id: Branch; name: string; blurb: string; nodes: NodeId[]; }
 export const TREE: TreeBranch[] = [
-  { id: 'striker', name: 'Striker', blurb: 'Raw damage. Times tables and big multiply/divide.', nodes: ['chain', 'sharp', 'execute', 'overcharge', 'meteor'] },
-  { id: 'warden', name: 'Warden', blurb: 'Survive anything. Adding and subtracting.', nodes: ['ward', 'vigor', 'mend', 'thickskin', 'sight'] },
-  { id: 'tactician', name: 'Tactician', blurb: 'Control the room. Everyday math.', nodes: ['nova', 'keen', 'frost', 'clearmind', 'rift'] },
+  { id: 'striker', name: 'Striker', blurb: 'Sums that strike. Times tables, big multiply/divide.', nodes: ['chain', 'sharp', 'execute', 'overcharge', 'meteor'] },
+  { id: 'warden', name: 'Warden', blurb: 'Sums that shield. Adding and subtracting.', nodes: ['ward', 'vigor', 'mend', 'thickskin', 'sight'] },
+  { id: 'tactician', name: 'Tactician', blurb: 'Sums that bend the room. Everyday math.', nodes: ['nova', 'keen', 'frost', 'clearmind', 'rift'] },
 ];
 
 export const SKILL_MAX_LEVEL = 5;

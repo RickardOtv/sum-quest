@@ -27,4 +27,6 @@ export default defineConfig(({ mode }) => ({
     // Fonts stay separate files in the normal build (the browser only downloads the format it needs).
     assetsInlineLimit: mode === 'single' ? 32768 : (file: string) => (/\.woff2?$/.test(file) ? false : undefined),
   },
+  // agents work in git worktrees under .worktrees/: their copies of the tests aren't ours
+  test: { exclude: ['**/node_modules/**', '.worktrees/**'] },
 }));

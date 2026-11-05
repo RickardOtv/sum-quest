@@ -221,19 +221,19 @@ export const NPCS: Record<string, Npc> = {
   smith: {
     id: 'smith', name: 'Brannoc', person: { skin: '#b8865c', hair: '#2a1e1a', style: 'bald', beard: true },
     looks: { armor: { style: 'jerkin', main: '#5a3c2a', accent: '#8a6a44' }, gloves: { style: 'gauntlets', main: '#4a4a52', accent: '#7a7a84' }, pants: { style: 'trousers', main: '#3a3230', accent: '#2a2420' }, boots: { style: 'boots', main: '#3a2a1e', accent: '#5a4432' } },
-    lines: ['Steel\'s hot. What needs work?', 'Bring scrap and I\'ll make it sing.', 'A sharp mind, a sharp blade.'],
+    lines: ['Steel\'s hot. You bring the sums.', 'Wrong sum, cracked steel. Right sum, it sings.', 'I swing the hammer. You do the counting.'],
     skin: { looks: { armor: { style: 'jerkin', main: '#5a3c2a', accent: '#8a6a44' }, gloves: { style: 'gauntlets', main: '#4a4a52', accent: '#7a7a84' }, pants: { style: 'trousers', main: '#3a3230', accent: '#2a2420' }, boots: { style: 'boots', main: '#3a2a1e', accent: '#5a4432' } }, hair: '#2a1e1a', hideWeapon: true },
   },
   trainer: {
     id: 'trainer', name: 'Ysolde', person: { skin: '#e8b48c', hair: '#8a3a2a', style: 'bun' },
     looks: { armor: { style: 'tunic', main: '#3e5a3a', accent: '#6a8a4a' }, gloves: { style: 'wraps', main: '#c8b898', accent: '#a89878' }, pants: { style: 'trousers', main: '#4a4030', accent: '#3a3020' }, boots: { style: 'boots', main: '#4a3020', accent: '#6a4a32' } },
-    lines: ['Fast hands, faster head. Ready?', 'Sixty seconds. Show me.', 'Every trick I teach saves you a second.'],
+    lines: ['Fast hands, faster head. Ready?', 'Sixty seconds. Show me.', 'A shortcut is a spell written cleaner.'],
     skin: { looks: { armor: { style: 'tunic', main: '#3e5a3a', accent: '#6a8a4a' }, gloves: { style: 'wraps', main: '#c8b898', accent: '#a89878' }, pants: { style: 'trousers', main: '#4a4030', accent: '#3a3020' }, boots: { style: 'boots', main: '#4a3020', accent: '#6a4a32' } }, hair: '#8a3a2a' },
   },
   monk: {
     id: 'monk', name: 'Old Ferrin', person: { skin: '#caa078', hair: '#b8b4b0', style: 'long', beard: true },
     looks: { armor: { style: 'robe', main: '#5a4a6a', accent: '#8a7aa8' }, boots: { style: 'sandals', main: '#5a4432', accent: '#3a2a20' } },
-    lines: ['Sit. Your skills are shaped here.', 'The mind is a blade too. Hone it.', 'What you unlearn, you can learn anew.'],
+    lines: ['Sit. Spells are written on this stone.', 'A true sum has weight. A false one, none.', 'The stone cracked once. We mend it one number at a time.'],
     skin: { looks: { armor: { style: 'robe', main: '#5a4a6a', accent: '#8a7aa8' }, pants: { style: 'trousers', main: '#4a4060', accent: '#3a3050' }, boots: { style: 'sandals', main: '#5a4432', accent: '#3a2a20' }, free: { style: 'cloak', main: '#3a2e4a', accent: '#5a4a6a' } }, hair: '#b8b4b0', hideWeapon: true },
   },
 };

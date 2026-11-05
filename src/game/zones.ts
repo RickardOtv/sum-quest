@@ -27,17 +27,17 @@ export interface Zone {
 
 export const ZONES: Record<ZoneId, Zone> = {
   thornwood: {
-    id: 'thornwood', num: 1, name: 'Thornwood', blurb: 'Slimes, spore-caps, wisps and boars under the old trees.', style: 'forest',
+    id: 'thornwood', num: 1, name: 'Thornwood', blurb: 'The old trees lost count. Their woods crawl with miscounts.', style: 'forest',
     roster: [{ kind: 'slime', from: 0 }, { kind: 'spore', from: 0 }, { kind: 'wisp', from: 1 }, { kind: 'boar', from: 2 }],
     miniboss: 'tusk', minibossName: 'Old Tusk', minibossTip: 'watch for the red line',
-    boss: 'boss', bossName: 'Old Rootback', bossSub: 'the heart of Thornwood',
+    boss: 'boss', bossName: 'Old Rootback', bossSub: 'the tree that lost count of its rings',
     bossBar: 0xb8483e, minibossBar: 0xd08a3a, hpMult: 1, goldMult: 1, chestBonus: 0, budgetBonus: 0,
   },
   emberfall: {
-    id: 'emberfall', num: 2, name: 'Emberfall', blurb: 'The village past the forest. Empty, still burning, and not quite abandoned.', style: 'village',
+    id: 'emberfall', num: 2, name: 'Emberfall', blurb: 'The village forgot its measure. The fire never learned to stop. Someone is still hiding.', style: 'village',
     roster: [{ kind: 'imp', from: 0 }, { kind: 'slime', from: 0 }, { kind: 'hound', from: 1 }, { kind: 'wisp', from: 3 }],
     miniboss: 'cinderjaw', minibossName: 'Cinderjaw', minibossTip: 'its charge leaves fire behind',
-    boss: 'golem', bossName: 'The Cinder Golem', bossSub: 'the burning heart of Emberfall',
+    boss: 'golem', bossName: 'The Cinder Golem', bossSub: 'the hearth-keeper who forgot the measure',
     bossBar: 0xe0702a, minibossBar: 0xd0503e, hpMult: 1.55, goldMult: 1.6, chestBonus: 0.12, budgetBonus: 1.5,
   },
 };

@@ -27,6 +27,9 @@ interface Generator {
   category: Category;
   label: string;
   weight: number; // everyday math is weighted higher, as it's the main goal
+  /** Problems that only make sense inside one feature (a chest lock, a trader's deal, a rune gate):
+   *  never picked for crits, skills or the focus plan, but still tracked and shown on Progress. */
+  context?: 'lock' | 'deal' | 'gate';
   make(recent: string[]): Omit<Problem, 'genKey' | 'tier' | 'key' | 'tolerance'> & { key?: string; tolerance?: number };
 }
 
@@ -125,8 +128,9 @@ export const ALL_PAIRS = pairs(12, () => true);
 const SMALL_PAIRS = pairs(9, (_a, b) => b <= 9);
 const BIG_PAIRS = pairs(12, (_a, b) => b >= 11);
 
-/** Fading, missed and unseen facts are much more likely; facts shown in the last few problems are avoided. */
-function pickPair(list: [number, number][], prefix: string, recent: string[]): [number, number] {
+/** Fading, missed and unseen facts are much more likely; facts shown in the last few problems are avoided.
+ *  Exported so features can pick their numbers by need too (a slime's 12 = the 3×4 you're forgetting). */
+export function pickPair(list: [number, number][], prefix: string, recent: string[]): [number, number] {
   const weights = list.map(([a, b]) => {
     const key = `${prefix}:${a}×${b}`, w = priority(key);
     return recent.includes(key) ? w * 0.05 : w;
@@ -249,6 +253,8 @@ export const GENERATORS: Generator[] = [
 ];
 
 export const generatorByKey = (k: string) => GENERATORS.find(g => g.key === k);
+/** The generators for general practice (crits, skills, Sprint, the focus plan): everything without a `context`. */
+export const PRACTICE_GENERATORS = GENERATORS.filter(g => !g.context);
 
 /** Build a problem from a specific generator. With `focus`, retries a few times for one that matches. */
 export function makeProblem(genKey: string, recent: string[] = [], focus?: (p: Problem) => boolean): Problem {
@@ -271,8 +277,8 @@ export const setFocusGenerators = (keys: string[]) => { focusGens = new Set(keys
  * skills get extra weight, and the same generator twice in a row is discouraged.
  */
 export function pickProblem(tier: number, recent: string[] = [], lastGen?: string, category?: Category): Problem {
-  let gens = GENERATORS.filter(g => g.tier === tier && (!category || g.category === category));
-  if (!gens.length) gens = GENERATORS.filter(g => g.tier === tier);
+  let gens = PRACTICE_GENERATORS.filter(g => g.tier === tier && (!category || g.category === category));
+  if (!gens.length) gens = PRACTICE_GENERATORS.filter(g => g.tier === tier);
   // a whole problem type is only held back after three fluent answers this session (single facts after one)
   const weights = gens.map(g => g.weight * priority(g.key, 3) * (focusGens.has(g.key) ? 2.5 : 1) * (g.key === lastGen ? 0.25 : 1));
   return makeProblem(weightedPick(gens, weights).key, recent);
