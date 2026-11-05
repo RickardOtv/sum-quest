@@ -20,6 +20,9 @@ let feedbackTimer = 0;
 let lastRooms = '', lastPerks = '';
 let onSpecialPress: ((index: number) => void) | null = null;
 let onPausePress: (() => void) | null = null;
+/** The skill dock's box in HUD pixels (+ a margin), measured once per HUD and again after a resize. */
+let dockBox: { left: number; right: number; top: number; bottom: number } | null = null;
+window.addEventListener('resize', () => { dockBox = null; });
 
 export function showHud(handlers: { special: (index: number) => void; pause: () => void }, skills: (Skill | null)[]) {
   hideHud();
@@ -31,12 +34,12 @@ export function showHud(handlers: { special: (index: number) => void; pause: () 
         <div class="rooms"></div>
       </div>
       <div class="gold-pill"><span class="coin"></span><b class="num" id="run-gold">0</b></div>
-      <button class="icon-btn" id="pause" aria-label="Pause">❚❚</button>
+      <button class="icon-btn" id="pause" aria-label="Pause"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></svg></button>
     </div>
     <div class="fx-layer"></div><div class="door-layer"></div><div class="boss-name" hidden></div>
     <div class="perk-strip" id="perk-strip"></div>
     <div class="feedback" id="feedback"></div>
-    <div class="skills-dock">${skills.map((sk, i) => sk ? `<button class="special" data-i="${i}" aria-label="${esc(sk.name)}" title="${esc(sk.short)}"><span class="ring"></span><b>${gi(sk.glyph)}</b><span class="nm">${esc(sk.name)}</span><small>${i === 0 ? 'Space' : 'E'}</small></button>` : '').join('')}</div>
+    <div class="skills-dock">${skills.map((sk, i) => sk ? `<button class="special" data-i="${i}" aria-label="${esc(sk.name)}" title="${esc(sk.short)}"><span class="ring"></span><b>${gi(sk.glyph)}</b><span class="nm">${esc(sk.name)}</span><kbd>${i === 0 ? 'Space' : 'E'}</kbd></button>` : '').join('')}</div>
   </div>`);
   hud.querySelector('.coin')!.appendChild(spriteCanvas(ICONS.gold, 2));
   hud.querySelector('#pause')!.addEventListener('click', () => onPausePress?.());
@@ -51,13 +54,14 @@ export function showHud(handlers: { special: (index: number) => void; pause: () 
 }
 
 export function hideHud() {
-  hud?.remove(); hud = null; lastRooms = ''; lastPerks = '';
+  hud?.remove(); hud = null; lastRooms = ''; lastPerks = ''; dockBox = null;
   releaseAllKeys(); // any open prompt's handler goes too; its promise simply never resolves
   document.querySelectorAll('.overlay').forEach(o => o.remove());
 }
 
-/** `room` and `totalRooms` count inside the current zone (the dots show this zone's 10 rooms). */
-export function updateHud(s: { hp: number; maxHp: number; gold: number; room: number; totalRooms: number; zone: string; charges: number[]; perks: PerkLevels; skills: (Skill | null)[] }) {
+/** `room` and `totalRooms` count inside the current zone (the dots show this zone's 10 rooms).
+ *  `hero` = the hero's feet in screen pixels (the HUD and the canvas share coordinates). */
+export function updateHud(s: { hp: number; maxHp: number; gold: number; room: number; totalRooms: number; zone: string; charges: number[]; perks: PerkLevels; skills: (Skill | null)[]; hero: { x: number; y: number } }) {
   if (!hud) return;
   hud.querySelector('#run-gold')!.textContent = String(s.gold);
   // health, top left: a small heart, a bar and the number (red and pulsing when low)
@@ -75,9 +79,21 @@ export function updateHud(s: { hp: number; maxHp: number; gold: number; room: nu
     btn.style.setProperty('--charge', String(Math.min(100, charge)));
     btn.classList.toggle('ready', charge >= 100);
   });
+  fadeDock(s.hero.x, s.hero.y);
   const perks = PERKS.filter(p => p.id !== 'heal' && s.perks[p.id])
     .map(p => `<span title="${esc(p.name)}">${gi(p.glyph)}${(s.perks[p.id] ?? 0) > 1 ? `<sub>${s.perks[p.id]}</sub>` : ''}</span>`).join('');
   if (perks !== lastPerks) { lastPerks = perks; hud.querySelector('#perk-strip')!.innerHTML = perks; }
+}
+
+/** The skill buttons go see-through while the hero (about 32×44 px above the feet, plus a margin) is under or near them. */
+function fadeDock(x: number, y: number) {
+  const dock = hud?.querySelector<HTMLElement>('.skills-dock'); if (!dock || !hud) return;
+  if (!dockBox) {
+    const d = dock.getBoundingClientRect(), o = hud.getBoundingClientRect(), m = 14;
+    dockBox = { left: d.left - o.left - m, right: d.right - o.left + m, top: d.top - o.top - m, bottom: d.bottom - o.top + m };
+  }
+  const b = dockBox;
+  dock.classList.toggle('faded', x + 16 > b.left && x - 16 < b.right && y > b.top && y - 44 < b.bottom);
 }
 
 /* ---------------- text and labels in the world ----------------

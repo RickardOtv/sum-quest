@@ -1,6 +1,7 @@
 /**
  * The thin overlay on top of the camp scene: gold / streak / daily chips,
- * the bag button, and the prompt that appears when you reach a station.
+ * the bag button, the stations' name plates, and the prompt that appears
+ * when you reach a station.
  */
 import { gi, type IconName } from './icons';
 import { CONFIG } from '../config';
@@ -12,13 +13,15 @@ import { installHint } from './install';
 import { applyUpdate, onUpdateReady, updateReady } from '../pwa';
 
 export interface HubPrompt { id: string; label: string; glyph: IconName; npc?: Npc; }
+/** A station's name plate; x / y in game px (the same as CSS px over the canvas). */
+export interface HubPlate { id: string; x: number; y: number; label: string; }
 interface Handlers { bag: () => void; settings: () => void; use: () => void; }
 
 let hud: HTMLElement | null = null;
 let handlers: Handlers | null = null;
 const lineIndex: Record<string, number> = {};
 
-export function showHubHud(h: Handlers) {
+export function showHubHud(h: Handlers, plates: HubPlate[] = []) {
   hideHubHud();
   handlers = h;
   const today = save.practiceByDay[dayKey()] ?? 0;
@@ -28,12 +31,13 @@ export function showHubHud(h: Handlers) {
       <div class="camp-chips">
         <span class="chip num" title="Gold and scrap"><span class="coin"></span>${save.gold}<span class="scrap-ic">${gi('metal-bar')}</span>${save.scrap}</span>
         <span class="chip num" title="Days in a row you hit the daily goal">Streak ${currentStreak()}</span>
-        <span class="chip num" title="Time spent solving today">${fmtTime(Math.min(today, CONFIG.dailyGoalSec))} / ${fmtTime(CONFIG.dailyGoalSec)}</span>
+        <span class="chip num" title="Time spent solving today (daily goal: a chest)">${gi('hourglass')}Today ${fmtTime(Math.min(today, CONFIG.dailyGoalSec))} / ${fmtTime(CONFIG.dailyGoalSec)}</span>
       </div>
       <button class="settings-btn" title="Settings" aria-label="Settings">${gi('cog')}</button>
     </header>
+    ${plates.map(p => `<span class="hub-plate" data-id="${p.id}" style="left:${Math.round(p.x)}px;top:${Math.round(p.y)}px">${esc(p.label)}</span>`).join('')}
     <div class="hub-prompt" hidden></div>
-    <p class="hub-hint note small">Drag to walk, or tap a place to go there. <kbd>E</kbd> to use it.</p></div>`);
+    <p class="hub-hint small">Drag to walk, or tap a place to go there.<span class="keys-only"> <kbd>E</kbd> to use it.</span></p></div>`);
   hud.querySelector('.coin')!.appendChild(spriteCanvas(ICONS.gold, 2));
   hud.querySelector('.bag-btn')!.addEventListener('click', () => handlers?.bag());
   hud.querySelector('.settings-btn')!.addEventListener('click', () => handlers?.settings());
@@ -64,6 +68,7 @@ export function hideHubHud() { hud?.remove(); hud = null; handlers = null; }
 export function setPrompt(p: HubPrompt | null) {
   const el = hud?.querySelector<HTMLElement>('.hub-prompt');
   if (!el) return;
+  hud!.querySelectorAll<HTMLElement>('.hub-plate').forEach(pl => pl.classList.toggle('near', pl.dataset.id === p?.id)); // the prompt names it already
   if (!p) { el.hidden = true; el.innerHTML = ''; return; }
   let said = '';
   if (p.npc) { const i = (lineIndex[p.npc.id] ?? -1) + 1; lineIndex[p.npc.id] = i % p.npc.lines.length; said = p.npc.lines[lineIndex[p.npc.id]]; }

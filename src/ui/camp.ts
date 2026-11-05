@@ -10,7 +10,7 @@ import { CONFIG, MADE_BY, forgeChance } from '../config';
 import { TIER_LABEL, pickProblem } from '../math/problems';
 import { effectiveBox, getSkill } from '../math/mastery';
 import { planFocus, recommendedTier } from '../math/adaptive';
-import { TRICKS } from '../math/tricks';
+import { TRICKS, suggestTrick, type Trick } from '../math/tricks';
 import { SKILLS, SKILL_SLOTS, TREE, isSkillId, maxLevelOf, passiveById, skillAt, type NodeId, type SkillEffect } from '../game/skills';
 import { branchOf, buy, canBuy, checkStreakMilestones, earnPoint, isUnlocked, levelOf, refundablePoints, respec, respecCost, respecUnlocked } from '../state/points';
 import { logAnswer } from '../state/answers';
@@ -19,7 +19,8 @@ import { applyLoadout, blockedSlot, currentStats, equippedItem, equippedItems, h
 import { CHESTS, RARITIES, SETS, SLOTS, SLOT_LABEL, baseById, forgeCost, heroPower, heroStats, maxLevel, salvageValue, setCounts, type Item } from '../game/items';
 import { ROOTBACK, spriteCanvas, ICONS } from '../game/art/sprites';
 import { drawChest } from '../game/art/hero';
-import { NPCS, drawAnvil, drawShrine, drawWorkshop, drawYard, npcCanvas } from '../game/art/camp';
+import { NPCS, drawAnvil, drawShrine, drawWorkshop, drawYard, npcCanvas, type Npc } from '../game/art/camp';
+import type { Pixels } from '../game/art/pixels';
 import { ZONE_ROOMS, localRoom, zoneOfRoom } from '../game/run';
 import { ZONES, ZONE_LIST } from '../game/zones';
 import { answerText, askTyped, confidenceDue, esc, fmtTime, html, openSheet, pushKeys, uiRoot, vibrate } from './dom';
@@ -39,11 +40,24 @@ const TAB_TITLE: Record<CampTab, [string, string]> = {
   progress: ['Notice board', 'your progress'], skills: ['Meditation', "Old Ferrin's clearing"],
 };
 
-/** Open one panel over the (paused) camp. */
-export function showCamp(tab: CampTab, a: CampActions) {
+/** One line shown the first time each panel opens (seen ones are kept in the save). */
+const FIRST_TIP: Record<CampTab, string> = {
+  bag: 'Tap a chest to open it. Tap a slot or an item to change what you wear.',
+  forge: 'Pick a piece below, then Forge. A harder problem makes it more likely to hold.',
+  training: 'Lessons teach a shortcut. Finish one for gold and a skill point.',
+  progress: 'What you know, what is fading, and your records.',
+  skills: 'Spend skill points in the tree. Tap a slot to choose the skills you take on a run.',
+};
+let tipFor: CampTab | null = null; // the panel whose tip shows during this visit
+
+/** Open one panel over the (paused) camp. `keepScroll` re-renders it where it was scrolled to. */
+export function showCamp(tab: CampTab, a: CampActions, keepScroll = false) {
   actions = a;
   releaseKeys?.(); releaseKeys = null;
+  const scroll = keepScroll ? uiRoot().querySelector('#camp-body')?.scrollTop ?? 0 : 0;
+  const toasts = [...uiRoot().querySelectorAll('.toast')]; // e.g. "+1 skill point" from what just happened
   uiRoot().innerHTML = '';
+  uiRoot().append(...toasts);
   const [title, sub] = TAB_TITLE[tab];
   const camp = html(`<div class="camp">
     <header class="panel-top"><div><h2>${title}</h2><span class="note small">${sub}</span></div>
@@ -56,11 +70,20 @@ export function showCamp(tab: CampTab, a: CampActions) {
   const body = camp.querySelector<HTMLElement>('#camp-body')!;
   body.classList.toggle('flush', tab === 'forge' || tab === 'training' || tab === 'skills'); // scenes run edge to edge
   ({ bag: bagTab, forge: forgeTab, training: trainingTab, progress: (b: HTMLElement) => renderProgress(b, t => showCamp(t, actions)), skills: skillsTab })[tab](body);
+  if (!save.seenTips.includes(tab)) { save.seenTips.push(tab); persist(); tipFor = tab; }
+  if (tipFor === tab) body.prepend(firstTip(tab));
+  body.scrollTop = scroll;
   releaseKeys = pushKeys(e => { if (e.key === 'Escape') { backToCamp(); return true; } return false; });
 }
 
 const refresh = (tab: CampTab) => () => showCamp(tab, actions);
-function clearCamp() { releaseKeys?.(); releaseKeys = null; uiRoot().innerHTML = ''; }
+function clearCamp() { releaseKeys?.(); releaseKeys = null; tipFor = null; uiRoot().innerHTML = ''; }
+
+function firstTip(tab: CampTab): HTMLElement {
+  const el = html(`<div class="first-tip">${gi('sparkles')}<span>${esc(FIRST_TIP[tab])}</span><button aria-label="Hide tip">✕</button></div>`);
+  el.querySelector('button')!.addEventListener('click', () => { tipFor = null; el.remove(); });
+  return el;
+}
 function backToCamp() { clearCamp(); actions.back(); }
 
 /* ---------------- head out: the path north ---------------- */
@@ -203,41 +226,47 @@ function bagTab(body: HTMLElement) {
 
 /* ---------------- skills: the meditation stone ---------------- */
 let monkLine = 0;
+const GEM = '<span class="gem">◆</span>'; // a skill point, everywhere it shows
+const SLOT_KEY = ['Space', 'E'];
+const slotName = (i: number) => `Slot ${i + 1} <kbd class="key">${SLOT_KEY[i]}</kbd>`;
+const reskills = () => showCamp('skills', actions, true); // re-render, staying where you were in the tree
 
-/** The clearing: your two skills float over the altar; below, every skill as a card and the three loadout seals. */
+/** One screen: the two equipped slots and your points on top, the three-branch tree, loadouts, Rebirth. */
 function skillsTab(body: HTMLElement) {
-  const line = NPCS.monk.lines[monkLine++ % NPCS.monk.lines.length];
-  const scene = html(`<section class="scene shrine"><div class="speech">${esc(line)}</div><div class="npc"></div><div class="skill-float"></div></section>`);
-  scene.prepend(Object.assign(drawShrine().toCanvas(1), { className: 'wall-art' }));
-  scene.querySelector('.npc')!.appendChild(npcCanvas(NPCS.monk, 4));
-  const float = scene.querySelector('.skill-float')!;
+  body.appendChild(banner(drawShrine(), 'shrine', 96, NPCS.monk, NPCS.monk.lines[monkLine++ % NPCS.monk.lines.length]));
+
+  const top = html(`<section class="skill-top"><div class="skill-slots"></div>
+    <div class="points-row">${GEM}<b class="num">${save.skillPoints}</b><span>skill point${save.skillPoints === 1 ? '' : 's'} to spend</span>
+      <button class="info-btn" aria-label="How to earn skill points">?</button></div></section>`);
+  const slots = top.querySelector('.skill-slots')!;
   for (let i = 0; i < SKILL_SLOTS; i++) {
     const id = save.equippedSkills[i] ?? null, sk = id && isUnlocked(id) ? skillAt(id, levelOf(id)) : undefined;
-    const b = html(`<button class="skill-orb ${sk ? '' : 'empty'}" title="${sk ? `${esc(sk.name)} Lv ${sk.level}` : 'Empty slot'}"><span class="glyph">${sk ? gi(sk.glyph) : '+'}</span><kbd>${i === 0 ? 'Space' : 'E'}</kbd>${sk ? `<span class="lvb num">${sk.level}</span>` : ''}</button>`);
+    const b = html(`<button class="slot-btn ${sk ? '' : 'empty'}"><span class="glyph">${sk ? gi(sk.glyph) : '+'}</span>
+      <span class="info"><span class="label">${slotName(i)}</span><b>${sk ? esc(sk.name) : 'Empty'}</b><span class="note small">${sk ? `Lv ${sk.level}` : 'tap to choose'}</span></span></button>`);
     b.addEventListener('click', () => pickSkill(i));
-    float.appendChild(b);
+    slots.appendChild(b);
   }
-  body.appendChild(scene);
+  top.querySelector('.info-btn')!.addEventListener('click', pointsInfo);
+  body.appendChild(top);
 
-  const bar = html(`<div class="shop-bar"><div class="points"><span class="gem">◆</span><b class="num">${save.skillPoints}</b><span class="label">point${save.skillPoints === 1 ? '' : 's'}</span></div>
-    <button class="btn primary big" id="tree">Skill tree</button></div>`);
-  bar.querySelector('#tree')!.addEventListener('click', openTree);
-  body.appendChild(bar);
-
-  // every skill as a card: tap to equip it, level it, or read it
-  const cards = html(`<section class="deck"><div class="deck-head"><span class="label">Skills</span><span class="note small">tap a card</span></div><div class="skill-cards"></div></section>`);
-  const grid = cards.querySelector('.skill-cards')!;
-  SKILLS.forEach(base => {
-    const lv = levelOf(base.id), sk = skillAt(base.id, Math.max(1, lv)), slot = save.equippedSkills.indexOf(base.id);
-    const max = maxLevelOf(base.id);
-    const c = html(`<button class="skill-card ${lv ? '' : 'locked'} ${slot >= 0 ? 'on' : ''}" title="${esc(sk.name)}">
-      <span class="orb"><span class="glyph">${gi(lv ? sk.glyph : 'padlock')}</span></span><b>${esc(sk.name)}</b>
-      <span class="pips">${Array.from({ length: max }, (_, k) => `<i class="${k < lv ? 'on' : ''}"></i>`).join('')}</span>
-      ${slot >= 0 ? `<span class="where">${slot === 0 ? 'Space' : 'E'}</span>` : ''}</button>`);
-    c.addEventListener('click', () => skillCardMenu(base.id));
-    grid.appendChild(c);
-  });
-  body.appendChild(cards);
+  // the tree, inline: tap a node for details, unlock / level up, and equip
+  const tree = html(`<section class="deck"><div class="deck-head"><span class="label">Skill tree</span><span class="note small">1 point per level · top to bottom</span></div><div class="tree"></div></section>`);
+  for (const br of TREE) {
+    const col = html(`<div class="branch"><div class="branch-head"><b>${br.name}</b><span class="note small">${esc(br.blurb)}</span></div></div>`);
+    br.nodes.forEach((id, i) => {
+      const lv = levelOf(id), max = maxLevelOf(id), skill = isSkillId(id) ? skillAt(id, Math.max(1, lv)) : undefined, pas = skill ? undefined : passiveById(id);
+      const slot = skill ? save.equippedSkills.indexOf(skill.id) : -1;
+      const node = html(`<button class="node ${skill ? 'is-skill' : 'passive'} ${lv ? 'on' : 'locked'} ${canBuy(id).ok ? 'buyable' : ''}">
+        ${i > 0 ? '<i class="link"></i>' : ''}<span class="kind">${skill ? 'Skill' : 'Passive'}</span>
+        <span class="ic">${gi(skill ? skill.glyph : pas!.glyph)}</span><b>${esc(skill ? skill.name : pas!.name)}</b>
+        <span class="eff">${esc(skill ? skill.short : pas!.text(Math.max(1, lv)))}</span><span class="lv num">Lv ${lv}/${max}</span>
+        ${slot >= 0 ? `<span class="where">Slot ${slot + 1}</span>` : ''}</button>`);
+      node.addEventListener('click', () => openNode(id));
+      col.appendChild(node);
+    });
+    tree.querySelector('.tree')!.appendChild(col);
+  }
+  body.appendChild(tree);
 
   // loadouts as three seals
   const seals = html(`<section class="deck"><div class="deck-head"><span class="label">Loadouts</span><span class="note small">skills + gear, saved together</span></div><div class="seals"></div></section>`);
@@ -245,29 +274,83 @@ function skillsTab(body: HTMLElement) {
   save.loadouts.forEach((lo, i) => {
     const active = lo && loadoutMatchesCurrent(lo);
     const b = html(`<button class="seal ${lo ? '' : 'empty'} ${active ? 'on' : ''}"><span class="ring"><span class="glyph">${lo ? lo.skills.filter((x): x is SkillEffect => !!x).map(x => gi(skillAt(x, 1).glyph)).join('') || '+' : '+'}</span></span>
-      <b>${lo ? esc(lo.name) : `Slot ${i + 1}`}</b><span class="note small">${lo ? (active ? 'equipped' : `${Object.keys(lo.gear).length} pieces`) : 'empty'}</span></button>`);
+      <b>${lo ? esc(lo.name) : `Loadout ${i + 1}`}</b><span class="note small">${lo ? (active ? 'equipped' : `${Object.keys(lo.gear).length} pieces`) : 'empty'}</span></button>`);
     b.addEventListener('click', () => (lo ? loadoutMenu(i) : nameLoadout(i, `Build ${i + 1}`)));
     row.appendChild(b);
   });
   body.appendChild(seals);
+
+  if (respecUnlocked()) {
+    const re = html(`<button class="btn ghost">Rebirth: refund all ${refundablePoints()} point${refundablePoints() === 1 ? '' : 's'} for ${respecCost()} gold</button>`);
+    re.addEventListener('click', openRebirth);
+    body.appendChild(re);
+  } else body.appendChild(html('<p class="note small center">Beat Old Rootback once to unlock Rebirth (refund your points).</p>'));
 }
 
-/** What you can do with one skill: equip it to a key, level it, or just read about it. */
-function skillCardMenu(id: SkillEffect) {
-  const lv = levelOf(id), sk = skillAt(id, Math.max(1, lv)), max = maxLevelOf(id), { ok, why } = canBuy(id);
-  const slot = save.equippedSkills.indexOf(id);
-  const sheet = openSheet(`<div class="orb big"><span class="glyph">${gi(sk.glyph)}</span></div><h2>${esc(sk.name)}</h2>
-    <p class="note center">${esc(sk.short)}. ${esc(sk.tip)}</p>
-    <p class="center small">${TIER_LABEL[sk.tier]} ${CATEGORY_WORD[sk.category]} · recharges in ${sk.recharge}s · ${lv ? `Lv ${lv} / ${max}` : `locked · ${esc(branchOf(id).name)} branch`}</p>
-    <div class="row2"><button class="btn ${slot === 0 ? '' : 'primary'}" id="s0" ${lv && slot !== 0 ? '' : 'disabled'}>${slot === 0 ? 'On Space' : 'Equip · Space'}</button><button class="btn ${slot === 1 ? '' : 'primary'}" id="s1" ${lv && slot !== 1 ? '' : 'disabled'}>${slot === 1 ? 'On E' : 'Equip · E'}</button></div>
-    <div class="row2"><button class="btn" id="buy" ${ok ? '' : 'disabled'}>${lv ? 'Level up' : 'Unlock'} · 1 point</button><button class="btn ghost" id="close">Close</button></div>
-    ${!ok && why ? `<p class="note small center">${esc(why)}</p>` : ''}`);
-  const close = () => { release(); sheet.remove(); showCamp('skills', actions); };
-  const equipTo = (i: number) => { const other = save.equippedSkills.indexOf(id); if (other >= 0) save.equippedSkills[other] = null; save.equippedSkills[i] = id; persist(); vibrate(20); close(); };
-  sheet.querySelector('#s0')!.addEventListener('click', () => equipTo(0));
-  sheet.querySelector('#s1')!.addEventListener('click', () => equipTo(1));
-  sheet.querySelector('#buy')!.addEventListener('click', () => { if (buy(id)) { vibrate(30); close(); } });
+/** Put a skill in a slot (null empties it). If it sat in the other slot, the two swap. */
+function equipSkill(slot: number, id: SkillEffect | null) {
+  const other = id ? save.equippedSkills.indexOf(id) : -1;
+  if (other >= 0 && other !== slot) save.equippedSkills[other] = save.equippedSkills[slot] ?? null;
+  save.equippedSkills[slot] = id; persist(); vibrate(20);
+}
+
+/** Tap a slot: choose one of your unlocked skills for it. */
+function pickSkill(slot: number) {
+  const current = save.equippedSkills[slot] ?? null;
+  const sheet = openSheet(`<span class="label center">${slotName(slot)}</span><h2>Choose a skill</h2><div class="skill-list">${SKILLS.filter(b => isUnlocked(b.id)).map(base => {
+    const sk = skillAt(base.id, levelOf(base.id)), other = save.equippedSkills.indexOf(base.id);
+    return `<button data-id="${base.id}" class="skill-row ${base.id === current ? 'on' : ''}"><span class="glyph">${gi(sk.glyph)}</span>
+      <span class="info"><b>${esc(sk.name)} <span class="lvl">Lv ${sk.level}</span></b><span>${esc(sk.short)}</span>${other >= 0 && base.id !== current ? `<small>In Slot ${other + 1} now: the two swap</small>` : ''}</span></button>`; }).join('')}</div>
+    <p class="note small center">Unlock more skills in the tree.</p>
+    <div class="row2">${current ? '<button class="btn" id="clear">Empty this slot</button>' : ''}<button class="btn" id="close">Close</button></div>`);
+  const close = () => { release(); sheet.remove(); };
+  const done = (id: SkillEffect | null) => { equipSkill(slot, id); close(); reskills(); };
+  sheet.querySelectorAll<HTMLButtonElement>('[data-id]').forEach(b => b.addEventListener('click', () => done(b.dataset.id as SkillEffect)));
+  sheet.querySelector('#clear')?.addEventListener('click', () => done(null));
   sheet.querySelector('#close')!.addEventListener('click', close);
+  const release = pushKeys(e => { if (e.key === 'Escape') { close(); return true; } return false; });
+}
+
+/** One node: what it does, Unlock / Level up, and for an unlocked skill, Equip to Slot 1 / Slot 2. */
+function openNode(id: NodeId) {
+  const lv = levelOf(id), max = maxLevelOf(id);
+  const skill = isSkillId(id) ? skillAt(id, Math.max(1, lv)) : undefined, next = isSkillId(id) ? skillAt(id, Math.max(1, lv) + 1) : undefined, pas = skill ? undefined : passiveById(id);
+  const { ok, why } = canBuy(id), slot = skill ? save.equippedSkills.indexOf(skill.id) : -1, canEquip = !!skill && lv > 0;
+  const details = skill
+    ? `<p class="note">${esc(skill.short)}. ${esc(skill.tip)}</p><p class="small">${TIER_LABEL[skill.tier]} ${CATEGORY_WORD[skill.category]} problems · recharges in ${skill.recharge}s of combat</p>
+       ${lv === 0 ? '<p class="small"><b>Unlock</b> it to put it in a slot.</p>' : lv < max ? `<p class="small"><b>Next level:</b> +${Math.round((next!.power / skill.power - 1) * 100)}% effect, recharges in ${next!.recharge}s (now ${skill.recharge}s)</p>` : '<p class="small">Max level.</p>'}`
+    : `<p class="note">Always on. ${lv ? esc(pas!.text(lv)) : `Lv 1: ${esc(pas!.text(1))}`}.</p>${lv && lv < max ? `<p class="small"><b>Next level:</b> ${esc(pas!.text(lv + 1))}</p>` : lv ? '<p class="small">Max level.</p>' : ''}`;
+  const sheet = openSheet(`<span class="label center">${esc(branchOf(id).name)} · ${skill ? 'Skill' : 'Passive'} · Lv ${lv}/${max}</span><h2>${gi(skill ? skill.glyph : pas!.glyph)} ${esc(skill ? skill.name : pas!.name)}</h2>${details}
+    ${canEquip ? `<div class="row2">${[0, 1].map(i => `<button class="btn ${slot === i ? '' : 'primary'}" data-slot="${i}" ${slot === i ? 'disabled' : ''}>${slot === i ? `In ${slotName(i)}` : `Equip to ${slotName(i)}`}</button>`).join('')}</div>` : ''}
+    <div class="row2"><button class="btn ${canEquip ? '' : 'primary'}" id="buy" ${ok ? '' : 'disabled'}>${lv ? 'Level up' : 'Unlock'} · 1 point</button><button class="btn ghost" id="close">Close</button></div>
+    ${!ok && why ? `<p class="note small center">${esc(why)}</p>` : ''}`);
+  const close = () => { release(); sheet.remove(); };
+  sheet.querySelector('#buy')!.addEventListener('click', () => { if (buy(id)) { vibrate(30); close(); reskills(); } });
+  sheet.querySelectorAll<HTMLButtonElement>('[data-slot]').forEach(b => b.addEventListener('click', () => { equipSkill(+b.dataset.slot!, skill!.id); close(); reskills(); }));
+  sheet.querySelector('#close')!.addEventListener('click', close);
+  const release = pushKeys(e => { if (e.key === 'Escape') { close(); return true; } return false; });
+}
+
+/** The "?" next to your points: what they're for and where they come from. */
+function pointsInfo() {
+  const sheet = openSheet(`<h2>${GEM} Skill points</h2><p class="note center">Each point unlocks a node in the tree or raises it one level.</p>
+    <ul class="how"><li><b>Finish a Training lesson:</b> 3 of 4 right in camp, 2 of 2 in a run (once per lesson)</li>
+    <li><b>Master a lesson:</b> get it to 3 stars (once per lesson)</li>
+    <li><b>Beat a boss</b> (every time)</li>
+    <li><b>Keep your daily streak:</b> 3, 7, 14 and 30 days</li></ul>
+    <button class="btn primary" id="ok">Got it</button>`);
+  const close = () => { release(); sheet.remove(); };
+  sheet.querySelector('#ok')!.addEventListener('click', close);
+  const release = pushKeys(e => { if (e.key === 'Escape' || e.key === 'Enter') { close(); return true; } return false; });
+}
+
+function openRebirth() {
+  const c = openSheet(`<h2>Rebirth</h2><p class="note center">Refund <b>${refundablePoints()}</b> point${refundablePoints() === 1 ? '' : 's'} for <b>${respecCost()} gold</b>? Nova and Ward stay at Lv 1. The price goes up each time.</p>
+    <div class="row2"><button class="btn" id="no">Keep my tree</button><button class="btn primary" id="yes" ${save.gold >= respecCost() && refundablePoints() > 0 ? '' : 'disabled'}>Rebirth</button></div>
+    ${save.gold < respecCost() ? '<p class="note small center">Not enough gold.</p>' : ''}`);
+  const close = () => { release(); c.remove(); };
+  c.querySelector('#no')!.addEventListener('click', close);
+  c.querySelector('#yes')!.addEventListener('click', () => { if (respec()) { vibrate([30, 40, 30]); close(); reskills(); } });
   const release = pushKeys(e => { if (e.key === 'Escape') { close(); return true; } return false; });
 }
 
@@ -278,28 +361,13 @@ function loadoutMenu(i: number) {
     <div class="row2"><button class="btn primary" id="apply" ${active ? 'disabled' : ''}>${active ? 'Equipped' : 'Equip'}</button><button class="btn" id="save">Overwrite</button></div>
     <button class="btn ghost" id="close">Close</button>`);
   const close = () => { release(); sheet.remove(); };
-  sheet.querySelector('#apply')!.addEventListener('click', () => { const missing = applyLoadout(i); close(); showCamp('skills', actions); if (missing) toastMissing(missing); });
+  sheet.querySelector('#apply')!.addEventListener('click', () => { const missing = applyLoadout(i); close(); reskills(); if (missing) toastMissing(missing); });
   sheet.querySelector('#save')!.addEventListener('click', () => { close(); nameLoadout(i, lo.name); });
   sheet.querySelector('#close')!.addEventListener('click', close);
   const release = pushKeys(e => { if (e.key === 'Escape') { close(); return true; } return false; });
 }
 
 const CATEGORY_WORD = { addsub: 'add & subtract', muldiv: 'big × ÷', facts: 'times tables', everyday: 'everyday' } as const;
-
-function pickSkill(slot: number) {
-  const current = save.equippedSkills[slot] ?? null;
-  const sheet = openSheet(`<span class="label center">Slot ${slot + 1}</span><h2>Choose a skill</h2><div class="skill-list">${SKILLS.map(base => {
-    const lv = levelOf(base.id), known = lv > 0, sk = skillAt(base.id, lv), inOther = save.equippedSkills.includes(base.id) && base.id !== current;
-    return `<button data-id="${base.id}" class="skill-row ${known ? '' : 'locked'} ${base.id === current ? 'on' : ''}" ${known && !inOther ? '' : 'disabled'}>
-      <span class="glyph">${gi(sk.glyph)}</span><span class="info"><b>${esc(sk.name)}${known ? ` <span class="lvl">Lv ${lv}</span>` : ''}</b><span>${esc(sk.short)}</span><small>${TIER_LABEL[sk.tier]} ${CATEGORY_WORD[sk.category]} · recharges in ${sk.recharge}s · ${esc(sk.tip)}</small>
-      ${!known ? `<small class="warn">Locked · unlock it in the skill tree (${esc(branchOf(base.id).name)} branch)</small>` : inOther ? '<small>In your other slot</small>' : ''}</span></button>`; }).join('')}</div>
-    <div class="row2">${current ? '<button class="btn" id="clear">Empty this slot</button>' : ''}<button class="btn" id="close">Close</button></div>`);
-  const close = () => { release(); sheet.remove(); showCamp('skills', actions); };
-  sheet.querySelectorAll<HTMLButtonElement>('[data-id]').forEach(b => b.addEventListener('click', () => { save.equippedSkills[slot] = b.dataset.id as SkillEffect; persist(); close(); }));
-  sheet.querySelector('#clear')?.addEventListener('click', () => { save.equippedSkills[slot] = null; persist(); close(); });
-  sheet.querySelector('#close')!.addEventListener('click', close);
-  const release = pushKeys(e => { if (e.key === 'Escape') { close(); return true; } return false; });
-}
 
 /* ---------------- loadouts ---------------- */
 function toastMissing(n: number) { const t = html(`<div class="toast">${n} item${n > 1 ? 's' : ''} from that loadout ${n > 1 ? 'were' : 'was'} sold or salvaged, skipped</div>`); uiRoot().appendChild(t); setTimeout(() => t.remove(), 2600); }
@@ -313,68 +381,10 @@ function nameLoadout(index: number, suggested: string) {
   sheet.querySelectorAll<HTMLButtonElement>('[data-n]').forEach(b => b.addEventListener('click', () => { input.value = b.dataset.n!; }));
   const close = () => { release(); sheet.remove(); };
   sheet.querySelector('#cancel')!.addEventListener('click', close);
-  sheet.querySelector('#ok')!.addEventListener('click', () => { saveLoadout(index, input.value.trim() || suggested); close(); showCamp('skills', actions); });
+  sheet.querySelector('#ok')!.addEventListener('click', () => { saveLoadout(index, input.value.trim() || suggested); close(); reskills(); });
   // let the text field take the keyboard
   const release = pushKeys(e => { if (e.key === 'Escape') { close(); return true; } if (e.key === 'Enter') { (sheet.querySelector('#ok') as HTMLButtonElement).click(); return true; } return false; });
   input.focus(); input.select(); // synchronous, inside the tap, so iOS opens the keyboard
-}
-
-/** The skill tree: three branches, five nodes each, unlocked top to bottom. */
-function openTree() {
-  const sheet = openSheet(`<div class="row-between"><h2 style="text-align:left">Skill tree</h2><span class="tag gold num">${save.skillPoints} point${save.skillPoints === 1 ? '' : 's'}</span></div>
-    <p class="note small">Every node costs 1 point. Earn points by finishing a Training lesson with 3 of 4 right (once per lesson), beating the boss, and keeping your daily streak (3, 7, 14, 30 days).</p>
-    <div class="tree"></div>
-    ${respecUnlocked() ? `<button class="btn ghost" id="respec">Rebirth: refund all ${refundablePoints()} point${refundablePoints() === 1 ? '' : 's'} for ${respecCost()} gold</button>` : '<p class="note small center">Beat Old Rootback once to unlock Rebirth (refund your points).</p>'}
-    <button class="btn" id="close">Close</button>`);
-  sheet.classList.add('tree-sheet');
-  sheet.querySelector('#respec')?.addEventListener('click', () => {
-    const c = openSheet(`<h2>Rebirth</h2><p class="note center">Refund <b>${refundablePoints()}</b> point${refundablePoints() === 1 ? '' : 's'} for <b>${respecCost()} gold</b>? Nova and Ward stay at Lv 1. The price goes up each time.</p>
-      <div class="row2"><button class="btn" id="no">Keep my tree</button><button class="btn primary" id="yes" ${save.gold >= respecCost() && refundablePoints() > 0 ? '' : 'disabled'}>Rebirth</button></div>
-      ${save.gold < respecCost() ? '<p class="note small center">Not enough gold.</p>' : ''}`);
-    c.querySelector('#no')!.addEventListener('click', () => c.remove());
-    c.querySelector('#yes')!.addEventListener('click', () => { if (respec()) { vibrate([30, 40, 30]); c.remove(); release(); sheet.remove(); openTree(); } });
-  });
-  const tree = sheet.querySelector('.tree')!;
-  const render = () => {
-    tree.innerHTML = '';
-    sheet.querySelector('.tag.gold')!.textContent = `${save.skillPoints} point${save.skillPoints === 1 ? '' : 's'}`;
-    for (const br of TREE) {
-      const col = html(`<div class="branch"><div class="branch-head"><b>${br.name}</b><span class="note small">${esc(br.blurb)}</span></div></div>`);
-      br.nodes.forEach((id, i) => {
-        const lv = levelOf(id), max = maxLevelOf(id), skill = isSkillId(id) ? skillAt(id, Math.max(1, lv)) : undefined, pas = skill ? undefined : passiveById(id);
-        const { ok, why } = canBuy(id);
-        const node = html(`<button class="node ${lv ? 'on' : ''} ${skill ? 'is-skill' : 'passive'} ${ok ? 'buyable' : ''}" title="${esc(why ?? '')}">
-          ${i > 0 ? '<i class="link"></i>' : ''}
-          <span class="glyph">${gi(skill ? skill.glyph : pas!.glyph)}</span>
-          <b>${esc(skill ? skill.name : pas!.name)}</b>
-          <span class="pips">${Array.from({ length: max }, (_, k) => `<i class="${k < lv ? 'on' : ''}"></i>`).join('')}</span></button>`);
-        node.addEventListener('click', () => openNode(id, render));
-        col.appendChild(node);
-      });
-      tree.appendChild(col);
-    }
-  };
-  render();
-  const close = () => { release(); sheet.remove(); showCamp('skills', actions); };
-  sheet.querySelector('#close')!.addEventListener('click', close);
-  const release = pushKeys(e => { if (e.key === 'Escape') { close(); return true; } return false; });
-}
-
-function openNode(id: NodeId, onChange: () => void) {
-  const lv = levelOf(id), max = maxLevelOf(id);
-  const skill = isSkillId(id) ? skillAt(id, Math.max(1, lv)) : undefined, next = isSkillId(id) ? skillAt(id, Math.max(1, lv) + 1) : undefined, pas = skill ? undefined : passiveById(id);
-  const { ok, why } = canBuy(id);
-  const body = skill
-    ? `<p class="note">${esc(skill.short)}. ${esc(skill.tip)}</p><p class="small">${TIER_LABEL[skill.tier]} ${CATEGORY_WORD[skill.category]} problems · recharges in ${skill.recharge}s of combat</p>
-       ${lv === 0 ? '<p class="small"><b>Unlock</b> to equip it.</p>' : lv < max ? `<p class="small"><b>Next level:</b> +${Math.round((next!.power / skill.power - 1) * 100)}% effect, recharges in ${next!.recharge}s (now ${skill.recharge}s)</p>` : '<p class="small">Max level.</p>'}`
-    : `<p class="note">${lv ? esc(pas!.text(lv)) : 'Locked.'}</p>${lv < max ? `<p class="small"><b>Next level:</b> ${esc(pas!.text(lv + 1))}</p>` : '<p class="small">Max level.</p>'}`;
-  const sheet = openSheet(`<span class="label center">${esc(branchOf(id).name)} · ${lv ? `Lv ${lv} / ${max}` : 'locked'}</span><h2>${gi(skill ? skill.glyph : pas!.glyph)} ${esc(skill ? skill.name : pas!.name)}</h2>${body}
-    <div class="row2"><button class="btn primary" id="buy" ${ok ? '' : 'disabled'}>${lv === 0 ? 'Unlock' : 'Level up'} · 1 point</button><button class="btn" id="back">Back</button></div>
-    ${!ok ? `<p class="note small center">${esc(why!)}</p>` : ''}`);
-  const close = () => { release(); sheet.remove(); };
-  sheet.querySelector('#buy')!.addEventListener('click', () => { if (buy(id)) { vibrate(30); close(); onChange(); } });
-  sheet.querySelector('#back')!.addEventListener('click', close);
-  const release = pushKeys(e => { if (e.key === 'Escape') { close(); return true; } return false; });
 }
 
 /* ---------------- forge: Brannoc's workshop ---------------- */
@@ -499,37 +509,42 @@ async function forgeSolve(it: Item, size: number, tier: number) {
 let trainerLine = 0;
 const LESSON_GLYPH: Record<string, string> = { nines: '×9', bridge: '→10', round: '≈', tens: '10s', percent: '%', split: '÷', change: '¢', distribute: '⨉', chunkdiv: '÷÷', discount: '−%', squares: 'n²' };
 
-/** The yard: two mode cards (Sprint, daily goal), then every lesson as a card with an icon and stars. */
+/** Mastery stars (0–3) for a lesson: how well you know the skills it practises. */
+function lessonStars(t: Trick) {
+  const boxes = t.practice.map(k => effectiveBox(getSkill(k)));
+  return Math.round((boxes.reduce((a, b) => a + b, 0) / boxes.length / 5) * 3);
+}
+
+/** The yard: a short banner, Sprint + the daily goal, then every lesson as a card with stars. */
 function trainingTab(body: HTMLElement) {
   const done = save.trainingByDay[dayKey()] ?? [], today = save.practiceByDay[dayKey()] ?? 0;
   const goalMet = today >= CONFIG.dailyGoalSec, pct = Math.min(1, today / CONFIG.dailyGoalSec);
-  const line = NPCS.trainer.lines[trainerLine++ % NPCS.trainer.lines.length];
-  const scene = html(`<section class="scene yard"><div class="speech">${esc(line)}</div><div class="npc"></div></section>`);
-  scene.prepend(Object.assign(drawYard().toCanvas(1), { className: 'wall-art' }));
-  scene.querySelector('.npc')!.appendChild(npcCanvas(NPCS.trainer, 4));
-  body.appendChild(scene);
+  body.appendChild(banner(drawYard(), 'yard', 110, NPCS.trainer, NPCS.trainer.lines[trainerLine++ % NPCS.trainer.lines.length]));
 
-  // the two modes as big cards
+  // Sprint is a button; the daily goal is a status card (it fills from solving anywhere)
   const R = 26, C = 2 * Math.PI * R;
   const modes = html(`<div class="mode-cards">
     <button class="mode-card sprint"><span class="big-glyph">${gi('stopwatch')}</span><b>Sprint</b><span class="sub num">${save.sprint.best ? `best ${save.sprint.best}` : '60 seconds'}</span></button>
-    <div class="mode-card daily ${goalMet ? 'met' : ''}"><svg class="ring" viewBox="0 0 64 64"><circle cx="32" cy="32" r="${R}"/><circle class="val" cx="32" cy="32" r="${R}" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}"/></svg>
-      <span class="chest"></span><b>Daily</b><span class="sub num">${goalMet ? 'chest earned' : `${fmtTime(today)} / ${fmtTime(CONFIG.dailyGoalSec)}`}</span></div></div>`);
+    <div class="mode-card daily ${goalMet ? 'met' : ''}" role="status"><svg class="ring" viewBox="0 0 64 64"><circle cx="32" cy="32" r="${R}"/><circle class="val" cx="32" cy="32" r="${R}" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}"/></svg>
+      <span class="chest"></span><b>Daily goal</b><span class="sub num">${goalMet ? 'chest earned' : `${fmtTime(today)} / ${fmtTime(CONFIG.dailyGoalSec)}`}</span>
+      <span class="sub">${goalMet ? 'back tomorrow' : `solve ${CONFIG.dailyGoalSec / 60} min anywhere for a chest`}</span></div></div>`);
   modes.querySelector('.chest')!.appendChild(drawChest('wood').toCanvas(2));
   modes.querySelector('.sprint')!.addEventListener('click', () => { clearCamp(); runSprint(() => showCamp('training', actions)); });
   body.appendChild(modes);
 
-  // lessons as cards: icon, name, mastery stars; a corner badge when there is a point or gold to earn
-  const deck = html(`<section class="deck"><div class="deck-head"><span class="label">Lessons</span><span class="note small">${done.length} / ${TRICKS.length} today</span></div><div class="lesson-cards"></div></section>`);
+  // lessons as cards: icon, name, mastery stars; a corner badge when there are points or gold to earn
+  const rec = suggestTrick(done);
+  const deck = html(`<section class="deck"><div class="deck-head"><span class="label">Lessons</span><span class="note small">${done.length} / ${TRICKS.length} today</span></div>
+    <p class="note small legend">${GEM} skill point to earn · <span class="star">★</span> how well you know it · <span class="gold-dot">◉</span> gold today</p><div class="lesson-cards"></div></section>`);
   const grid = deck.querySelector('.lesson-cards')!;
-  TRICKS.forEach((t, idx) => {
-    const boxes = t.practice.map(k => effectiveBox(getSkill(k)));
-    const stars = Math.round((boxes.reduce((a, b) => a + b, 0) / boxes.length / 5) * 3);
-    const isDone = done.includes(t.id), point = !save.pointsEarned.includes(`lesson-${t.id}`);
-    const card = html(`<button class="lesson-card t${(idx % 4) + 1} ${isDone ? 'done' : ''}" title="${esc(t.idea)}">
+  TRICKS.forEach(t => {
+    const stars = lessonStars(t), isDone = done.includes(t.id), point = !save.pointsEarned.includes(`lesson-${t.id}`);
+    const pts = Number(point) + Number(!save.pointsEarned.includes(`mastery-${t.id}`));
+    const card = html(`<button class="lesson-card ${isDone ? 'done' : ''} ${t === rec ? 'rec' : ''}" title="${esc(t.idea)}">
+      ${t === rec ? '<span class="rec-tag">Recommended</span>' : ''}
       <span class="orb"><span class="glyph">${LESSON_GLYPH[t.id] ?? '?'}</span></span><b>${esc(t.title)}</b>
       <span class="stars">${[0, 1, 2].map(k => `<i class="${k < stars ? 'on' : ''}">★</i>`).join('')}</span>
-      ${point ? '<span class="corner pt">+1</span>' : isDone ? '<span class="corner ok">✓</span>' : '<span class="corner gold">◉</span>'}</button>`);
+      ${pts ? `<span class="corner pt">${GEM}+${pts}</span>` : isDone ? '<span class="corner ok">✓</span>' : '<span class="corner gold">◉</span>'}</button>`);
     card.addEventListener('click', async () => {
       const first = !isDone;
       const pay = (c: number) => (first ? CONFIG.training.dailyBonusGold + c * CONFIG.training.goldPerCorrect : 0);
@@ -537,11 +552,26 @@ function trainingTab(body: HTMLElement) {
       if (first) { save.gold += pay(correct); save.trainingByDay = { [dayKey()]: [...done, t.id] }; }
       persist();
       if (correct >= 3) earnPoint(`lesson-${t.id}`, t.title);
+      if (lessonStars(t) >= 3) earnPoint(`mastery-${t.id}`, `${t.title} mastered`);
       showCamp('training', actions);
     });
     grid.appendChild(card);
   });
   body.appendChild(deck);
+}
+
+/**
+ * A short scene banner: the pixel art at the smallest whole-number scale that fills the
+ * panel's width, cropped to `height` (never stretched, so the pixels stay crisp).
+ */
+function banner(art: Pixels, cls: string, height: number, npc: Npc, line: string): HTMLElement {
+  const w = document.getElementById('app')!.clientWidth, c = art.toCanvas(Math.ceil(w / art.w));
+  const el = html(`<section class="scene banner ${cls}" style="height:${height}px"><div class="speech">${esc(line)}</div><div class="npc"></div></section>`);
+  Object.assign(c.style, { left: `${Math.floor((w - c.width) / 2)}px`, top: `${Math.floor((height - c.height) / 2)}px` });
+  c.className = 'banner-art';
+  el.prepend(c);
+  el.querySelector('.npc')!.appendChild(npcCanvas(npc, 2));
+  return el;
 }
 
 /* ---------------- first launch (also Settings → How to play) ---------------- */
@@ -556,11 +586,9 @@ function installHowTo(): string {
 
 export function showIntro(done: () => void = () => {}) {
   const s = openSheet(`<span class="label center">Welcome</span><h2>Sum Quest</h2>
-    <ul class="how"><li><b>Fight like Archero:</b> move to dodge, stand still to attack.</li>
-    <li><b>Math is your power.</b> Crits ask a quick pick-one question and specials ask you to type the answer. You choose how hard.</li>
-    <li><b>Loot:</b> open chests by solving a problem. Harder problems and closer answers give rarer gear.</li>
-    <li><b>Lost a run?</b> You keep the gold and chests. Gear up and come back stronger.</li>
-    <li><b>The camp:</b> walk to the anvil, the yard, the board or the stone to use them. The path north starts a run.</li>
+    <ul class="how"><li><b>Fight:</b> move to dodge, stand still to attack.</li>
+    <li><b>Math is your power:</b> crits, skills and chests ask a quick sum.</li>
+    <li><b>Camp:</b> walk to a station to use it. The path north starts a run.</li>
     ${installHowTo()}</ul>
     ${save.seenIntro ? '' : '<p class="note small center">You have a chest waiting in your Bag.</p>'}
     <p class="note small center">Made by <a href="${MADE_BY.github}" target="_blank" rel="noopener">${MADE_BY.name}</a></p>

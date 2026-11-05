@@ -253,16 +253,16 @@ export function drawFlowers(variant: number): Pixels {
   return g;
 }
 
-/** A cluster of little red mushrooms, 24×18. */
+/** A cluster of little brown/tan mushrooms, 24×18 (never red: red caps are the spore-cap enemy). */
 export function drawShrooms(): Pixels {
-  const g = new Pixels(24, 18), rnd = seeded(193), CAP = ['#ff9a88', '#f06a54', '#e0503e', '#b83a2e', '#8a2a22'];
+  const g = new Pixels(24, 18), rnd = seeded(193), CAP = ['#e8cfa0', '#c9a46e', '#a8804e', '#84603a', '#5e4228'];
   const shroom = (x: number, y: number, r: number) => {
     g.rect(x - 1, y, 3, r + 2, '#f0e0c0'); g.vline(x + 1, y, y + r + 1, '#cdb894'); // stem
     blob(g, x, y, r + 1, r * 0.7, CAP, rnd, 0);
-    for (let i = 0; i < r; i++) { const sx = x - r + Math.floor(rnd() * r * 2), sy = y - Math.floor(rnd() * r * 0.6); if (g.get(sx, sy)) g.set(sx, sy, '#fff4e8'); }
+    for (let i = 0; i < r; i++) { const sx = x - r + Math.floor(rnd() * r * 2), sy = y - Math.floor(rnd() * r * 0.6); if (g.get(sx, sy)) g.set(sx, sy, '#f4e6c8'); }
   };
   shroom(7, 9, 5); shroom(16, 7, 3.5); shroom(18, 13, 2.5);
-  return softOutline(g, '#3e1a14');
+  return softOutline(g, '#3a2818');
 }
 
 /** Every prop texture: key → canvas at 2× detail (shown at scale 1). */

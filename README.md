@@ -10,6 +10,7 @@ npm install
 npm run dev          # opens on http://localhost:5173 (and on your phone via the network URL)
 npm run build        # type-check + production build in dist/
 npm run build:single # one self-contained HTML file in dist-single/
+npm test             # unit tests (Vitest): src/**/*.test.ts
 ```
 
 Controls in camp: drag to walk or tap a place to walk there (WASD/arrows on desktop), E/Enter = use the station
@@ -81,7 +82,7 @@ src/
     points.ts            skill points: sources, spending, node requirements
   ui/                    HTML menus and prompts on top of the game
     camp.ts              the panels that open from camp stations (Bag, Forge, Training yard, Notice board, Meditation stone) + "head out"
-    hub.ts               the thin overlay on the camp: Bag button, gold/streak chips, settings cog, the "Use" prompt
+    hub.ts               the thin overlay on the camp: Bag button, gold/streak/today chips, settings cog, station name plates, the "Use" prompt
     settings.ts          the settings sheet (currency, reset, credits)
     progress.ts          the notice board: pinned notes + Focus / Skills / Tables / Records tabs with small SVG charts
     loot.ts  runUI.ts  training.ts  styles.css
@@ -119,8 +120,8 @@ blocked). Houses, the chapel, the well, carts and stalls block walking and shots
 walking. Dev shortcut: `?zone=emberfall` (add `&boss` for the Golem).
 
 **Thornwood:** After each room you pick the next door; each door shows its reward (big icon) and danger
-(skulls). **Room 5** is Old Tusk, a huge boar that charges twice and sprays thorns when it hits a wall; beat it and
-choose: heal 40% or an iron chest. **Room 10** is Old Rootback, behind its own gate; besides its bullet patterns it
+(skulls). **Room 5** is Old Tusk, a huge boar that charges twice and sprays thorns when it hits a wall; beating it always
+heals 15%, then you choose: heal 40% or an iron chest. **Room 10** is Old Rootback, behind its own gate; besides its bullet patterns it
 now and then marks the ground under you and roots burst up a moment later: move out of the red rings. Thornback
 boars (from room 3) lower their heads and show a red line before charging. Healing is scarce on purpose: no free
 heal between rooms, heal doors are rare (a bit less rare when you're under half HP, never twice in a row), and the
@@ -144,7 +145,13 @@ station (or tap it to walk there) and a prompt appears; tap it or press E:
 - **Bag** button (top right, or I) → chests, what you wear, inventory · **Path north** → head out (start a run)
 
 Stations are a list in `HubScene.layout()`, so a shop stall or a new character is one entry plus its art.
-The hero's look in camp updates the moment you equip something.
+Each station has a small name plate under it (HTML in the HUD, so it's sharp; hidden while its prompt shows).
+The hero's look in camp updates the moment you equip something. The first time each panel opens it shows a
+one-line tip (seen tips are kept in the save, `seenTips`).
+
+The **Training yard** has a short banner, Sprint, a Daily goal status card, then the lessons. A lesson card shows
+stars (how well you know it), a ◆ badge for skill points still to earn, and a "Recommended" tag on the lesson for
+your weakest skill (`suggestTrick` in `math/tricks.ts`, the same pick a run's training room makes).
 
 ## How gear is drawn
 
@@ -173,15 +180,17 @@ add/subtract, Executioner's Mark = hard multiply/divide…) and does one thing. 
 (Space / E); each has its own charge meter that fills over time and per hit (casting one never
 sets the other back), each skill has its own recharge time (Second Sight 20 s … Mend and Meteor 40 s of combat), and time freezes while you type.
 
-The skill tree (Meditation stone → Skill tree) has three branches, five nodes each, unlocked top to
-bottom, one skill point per node:
+The Meditation stone is one screen: Slot 1 / Slot 2 (tap to choose a skill), your points (the "?" explains
+how to earn them), the tree inline, loadouts, Rebirth. Tap a node for details, Unlock / Level up, and Equip to a
+slot. Skills have round icons and a "Skill" tag, passives square icons and a "Passive" tag; nodes you can buy glow.
+The tree has three branches, five nodes each, unlocked top to bottom, one skill point per level:
 - **Striker** (damage): Chain Lightning → Sharpened → Executioner's Mark → Overcharge → Meteor
 - **Warden** (survival): Ward → Vigor → Mend → Thick Skin → Second Sight
 - **Tactician** (control): Nova → Keen Eye → Frost Field → Clear Mind → Time Rift
 
 Skills level 1–5 (+15% effect, 5% faster recharge per level); passives are permanent stat boosts.
-Points come from finishing a Training lesson with 3/4 right (once per lesson), every boss
-kill, and streak milestones (3, 7, 14, 30 days). Logic lives in `game/skills.ts` and
+Points come from finishing a Training lesson with 3/4 right (in a run's short training room: 2/2; once per lesson), getting a
+lesson to 3 stars (once per lesson, checked after a lesson in the yard), every boss kill, and streak milestones (3, 7, 14, 30 days). Logic lives in `game/skills.ts` and
 `state/points.ts`.
 
 **Rebirth** (refund all points, starters stay at Lv 1) unlocks after the first boss kill and

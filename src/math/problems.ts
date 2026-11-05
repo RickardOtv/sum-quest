@@ -304,7 +304,7 @@ export function makeChoices(p: Problem): number[] {
   const candidates: number[] = [];
   if (m) { const x = +m[1], y = +m[2]; candidates.push(x * (y + 1), x * (y - 1), (x + 1) * y, (x - 1) * y); }
   if (isMoney) candidates.push(a + 0.5, a - 0.5, a + 1, a - 1, a * 1.1);
-  candidates.push(a + 10, a - 10, a + 1, a - 1, a + 2, a - 2, a * 2, a / 2);
+  candidates.push(a + 10, a - 10, a + 1, a - 1, a + 2, a - 2); // near misses only: ×2 or ÷2 is too easy to rule out
   const shuffled = shuffle(candidates.filter(c => c > 0 && Math.abs(c - a) > 1e-9).map(c => Math.round(c * 100) / 100));
   for (const c of shuffled) { if (out.size >= 3) break; out.add(c); }
   return shuffle([...out]);

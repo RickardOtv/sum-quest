@@ -9,10 +9,10 @@ export const CONFIG = {
   // HP, damage, crit chance etc. come from gear (see game/items.ts → heroStats)
   hero: { speed: 140, radius: 8, invulnerableAfterHit: 0.6, shotsPerSecond: 2.3, slashSpeed: 430 },
 
-  /** Random crit: time freezes while you pick 1 of 3 answers. A super crit (rarer) instead
-   *  slows time, wipes enemy bullets, stops enemies attacking, and hits much harder.
+  /** Random crit: time freezes while you pick 1 of 3 answers. Few but big: at least 13 s apart, ×5.5 damage.
+   *  A super crit (rarer) instead slows time, wipes enemy bullets, stops enemies attacking, and hits much harder.
    *  Base chance (14%) and answer window (6.5 s) come from heroStats so gear can raise them. */
-  crit: { cooldown: 9, damageMult: 4, superChance: 0.25, superDamageMult: 8, superTimeScale: 0.18, superWindowMult: 1.3 },
+  crit: { cooldown: 13, damageMult: 5.5, superChance: 0.25, superDamageMult: 8, superTimeScale: 0.18, superWindowMult: 1.3 },
 
   /** Special skills (see game/skills.ts): every equipped skill has its own meter (0..100) that fills in its own
    *  `recharge` seconds of combat, plus a little per hit. A skill is ready when its meter is full. */
@@ -56,6 +56,7 @@ export const CONFIG = {
     healDoorWeight: 0.05,     // chance weight of a heal door (vs gold 0.3, power 0.28…)
     healDoorWeightHurt: 0.18, // …when below half HP
     miniBossHeal: 0.4,        // reward choice after a mini boss: heal 40% or open an iron chest
+    miniBossKillHeal: 0.15,   // …plus this heal, always, the moment it falls
     zoneHeal: 0.3,            // walking out of a zone after its boss heals 30%
     clearBonus: 60,
   },
@@ -68,7 +69,7 @@ export const CONFIG = {
     refundOnFail: 0.5,
   },
 
-  training: { problemsPerLesson: 4, goldPerCorrect: 8, dailyBonusGold: 20 },
+  training: { problemsPerLesson: 4, problemsInRun: 2, goldPerCorrect: 8, dailyBonusGold: 20 },
 
   /** Sprint: a fixed-time round; the score is comparable from day to day. */
   sprint: { seconds: 60, goldPerCorrect: 2 },

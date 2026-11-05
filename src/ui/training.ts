@@ -22,9 +22,10 @@ const stepList = (explain: string) => {
   return parts.length > 1 ? `<ol class="lesson-steps">${parts.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : `<p class="lesson-why">${esc(explain)}</p>`;
 };
 
-export function runLesson(trick: Trick, rewardText: (correct: number) => string): Promise<{ correct: number }> {
+/** `problems`: how many practice problems (camp lessons use the default; a run's training room asks fewer). */
+export function runLesson(trick: Trick, rewardText: (correct: number) => string, opts: { problems?: number } = {}): Promise<{ correct: number }> {
   return new Promise(resolve => {
-    const n = CONFIG.training.problemsPerLesson, ex = exampleFor(trick);
+    const n = opts.problems ?? CONFIG.training.problemsPerLesson, ex = exampleFor(trick);
     // 1. the trick: one sentence, a worked example step by step, then what you'll be asked
     const intro = openSheet(`<div class="label center">Training</div><h2>${esc(trick.title)}</h2>
       <p class="lesson-idea">${esc(cur(trick.idea))}</p>
@@ -68,7 +69,7 @@ export function runLesson(trick: Trick, rewardText: (correct: number) => string)
 
     // 3. result
     function finish() {
-      const done = openSheet(`<h2>${correct}/${CONFIG.training.problemsPerLesson} correct</h2>
+      const done = openSheet(`<h2>${correct}/${n} correct</h2>
         <p class="note center">${esc(rewardText(correct))}</p><button class="btn primary" id="ok">Continue</button>`);
       const close = () => { release(); done.remove(); resolve({ correct }); };
       done.querySelector('#ok')!.addEventListener('click', close);

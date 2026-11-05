@@ -18,7 +18,7 @@ import * as hubUI from '../../ui/hub';
 export type StationId = 'gate' | 'forge' | 'training' | 'board' | 'stone';
 export interface HubCallbacks { onStation: (id: StationId) => void; onBag: () => void; initial?: () => void; }
 
-interface Station { id: StationId; x: number; y: number; standY: number; label: string; glyph: IconName; npc?: keyof typeof NPCS; radius: number; }
+interface Station { id: StationId; x: number; y: number; standY: number; label: string; plate: string; glyph: IconName; npc?: keyof typeof NPCS; radius: number; }
 interface Obstacle { x: number; y: number; r: number; }
 
 export class HubScene extends Phaser.Scene {
@@ -61,7 +61,7 @@ export class HubScene extends Phaser.Scene {
     this.createHero(fireX - 40, Math.round(H * 0.66));
     this.setupInput();
 
-    hubUI.showHubHud(this.hudHandlers());
+    hubUI.showHubHud(this.hudHandlers(), this.plates());
     this.events.on('resume', this.onResume, this);
     this.events.once('shutdown', () => { this.events.off('resume', this.onResume, this); hubUI.hideHubHud(); });
     if (this.cb.initial) { const open = this.cb.initial; this.lock(); open(); } // e.g. straight into the Bag after a run
@@ -134,14 +134,14 @@ export class HubScene extends Phaser.Scene {
         this.obstacles.push({ x: nx, y: ny - 8, r: 12 });
       }
     };
-    place({ id: 'forge', x: 78, y: Math.round(H * 0.4), label: 'Forge', glyph: 'anvil-impact', npc: 'smith', radius: 40 }, 'anvil');
-    place({ id: 'training', x: W - 78, y: Math.round(H * 0.4), label: 'Training yard', glyph: 'archery-target', npc: 'trainer', radius: 40 }, 'dummy', 2, 10);
-    place({ id: 'board', x: 70, y: Math.round(H * 0.75), label: 'Notice board', glyph: 'scroll-quill', radius: 36 }, 'board', 2, 16);
-    place({ id: 'stone', x: W - 72, y: Math.round(H * 0.75), label: 'Meditation stone', glyph: 'meditation', npc: 'monk', radius: 40 }, 'stone', 2, 14);
+    place({ id: 'forge', x: 78, y: Math.round(H * 0.4), label: 'Forge', plate: 'Forge', glyph: 'anvil-impact', npc: 'smith', radius: 40 }, 'anvil');
+    place({ id: 'training', x: W - 78, y: Math.round(H * 0.4), label: 'Training yard', plate: 'Training', glyph: 'archery-target', npc: 'trainer', radius: 40 }, 'dummy', 2, 10);
+    place({ id: 'board', x: 70, y: Math.round(H * 0.75), label: 'Notice board', plate: 'Notice board', glyph: 'scroll-quill', radius: 36 }, 'board', 2, 16);
+    place({ id: 'stone', x: W - 72, y: Math.round(H * 0.75), label: 'Meditation stone', plate: 'Skills', glyph: 'meditation', npc: 'monk', radius: 40 }, 'stone', 2, 14);
     // the tent is yours (decoration for now), the gate is the path into the trees
     this.add.image(W - 64, H - 10, 'tent').setScale(2).setOrigin(0.5, 0.95).setDepth(H - 10);
     this.obstacles.push({ x: W - 64, y: H - 28, r: 28 });
-    this.stations.push({ id: 'gate', x: fireX, y: 100, standY: 124, label: 'Head out', glyph: 'open-gate', radius: 34 });
+    this.stations.push({ id: 'gate', x: fireX, y: 100, standY: 124, label: 'Head out', plate: 'Head out', glyph: 'open-gate', radius: 34 });
     this.add.image(fireX, 86, 'glow').setScale(1.4).setTint(0x8fb4ff).setAlpha(0.5).setDepth(1).setBlendMode(Phaser.BlendModes.ADD);
   }
 
@@ -267,6 +267,8 @@ export class HubScene extends Phaser.Scene {
   private hudHandlers() {
     return { bag: () => this.open('bag'), settings: () => { this.lock(); openSettings(() => this.scene.resume()); }, use: () => { if (this.near) this.activate(this.near); } };
   }
+  /** Name plates under the stations (HTML in the HUD, so the text is sharp; game px = CSS px). */
+  private plates(): hubUI.HubPlate[] { return this.stations.map(s => ({ id: s.id, x: s.x, y: s.y + 4, label: s.plate })); }
   private lock() {
     this.locked = true;
     this.stick = { active: false, id: -1, ox: 0, oy: 0, dx: 0, dy: 0, sx: 0, sy: 0, t: 0 };
@@ -280,7 +282,7 @@ export class HubScene extends Phaser.Scene {
     this.hero.body.anims.stop(); this.hero.body.setTexture('pxw'); // let go of the old sheets before they are replaced
     buildAdventurer(this, 'hero', heroSkin(), ['idle', 'run']);
     this.hero.body.play(`hero_idle_${this.hero.dir}`, true);
-    hubUI.showHubHud(this.hudHandlers());
+    hubUI.showHubHud(this.hudHandlers(), this.plates());
     const st = this.stations.find(s => s.id === this.near);
     if (st) hubUI.setPrompt({ id: st.id, label: st.label, glyph: st.glyph, npc: st.npc ? NPCS[st.npc] : undefined });
   }

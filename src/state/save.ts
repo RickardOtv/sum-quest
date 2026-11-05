@@ -37,6 +37,7 @@ export interface SaveData {
   sprint: { best: number; history: { day: string; score: number }[] }; // 60-second Sprint results
   currency: string;
   seenIntro: boolean;
+  seenTips: string[];                    // camp panels whose first-visit tip was shown
 }
 
 const freshAdaptive = () => Object.fromEntries(CATEGORIES.map(c => [c, { level: 1, acc: 0.82, n: 0 }])) as Record<Category, Adaptive>;
@@ -55,7 +56,7 @@ const fresh = (): SaveData => ({
   version: 2, gold: 0, scrap: 0, ...starterKit(), chests: ['wood'], tree: Object.fromEntries(STARTER_SKILLS.map(s => [s, 1])), skillPoints: 0, pointsEarned: [], equippedSkills: [...STARTER_SKILLS], loadouts: [null, null, null], respecs: 0, bestRoom: 0, clears: 0,
   skills: {}, practiceByDay: {}, streak: { lastDay: null, count: 0 }, trainingByDay: {},
   totals: { answered: 0, exact: 0 }, adaptive: freshAdaptive(), calibration: { sureN: 0, sureOk: 0, unsureN: 0, unsureOk: 0 },
-  sprint: { best: 0, history: [] }, currency: '€', seenIntro: false,
+  sprint: { best: 0, history: [] }, currency: '€', seenIntro: false, seenTips: [],
 });
 
 export let save: SaveData = fresh();
@@ -121,6 +122,7 @@ function sanitize() {
   save.calibration = { sureN: cal.sureN ?? 0, sureOk: cal.sureOk ?? 0, unsureN: cal.unsureN ?? 0, unsureOk: cal.unsureOk ?? 0 };
   const sp = (save.sprint ?? {}) as Partial<SaveData['sprint']>;
   save.sprint = { best: Number.isFinite(sp.best) ? sp.best! : 0, history: Array.isArray(sp.history) ? sp.history : [] };
+  if (!Array.isArray(save.seenTips)) save.seenTips = [];
 }
 
 /** v0.1 had one sword level and one armor level: carry them onto the starter gear. */

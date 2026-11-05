@@ -8,7 +8,9 @@
  * currency. With kronor (worth ~1/10 of a euro, no öre) they use `kr`, an
  * example with realistic kronor amounts.
  */
-import type { Problem } from './problems';
+import { generatorByKey, type Problem } from './problems';
+import { effectiveBox, getSkill } from './mastery';
+import { save } from '../state/save';
 
 export interface Example {
   question: string;      // the example problem, as a question
@@ -73,3 +75,17 @@ export const trickById = (id: string) => TRICKS.find(t => t.id === id)!;
 
 /** Find the lesson that teaches a given generator (used to suggest training). */
 export const trickForGenerator = (genKey: string) => TRICKS.find(t => t.practice.includes(genKey));
+
+/**
+ * The lesson to suggest next: the one for your weakest practised skill (lowest memory box) that
+ * has a lesson not in `exclude`; otherwise the first lesson not excluded (they go roughly easy → hard).
+ * Deterministic, so the "Recommended" tag doesn't jump around between visits.
+ */
+export function suggestTrick(exclude: string[] = []): Trick {
+  const open = (t: Trick | undefined): t is Trick => !!t && !exclude.includes(t.id);
+  const byWeakness = Object.keys(save.skills)
+    .map(k => ({ k, s: getSkill(k) })).filter(x => x.s && generatorByKey(x.k))
+    .sort((a, b) => effectiveBox(a.s) - effectiveBox(b.s))
+    .map(x => trickForGenerator(x.k));
+  return byWeakness.find(open) ?? TRICKS.find(open) ?? TRICKS[0];
+}

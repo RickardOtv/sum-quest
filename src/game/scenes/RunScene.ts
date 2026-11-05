@@ -10,8 +10,7 @@ import Phaser from 'phaser';
 import { CONFIG } from '../../config';
 import { TIER_TARGET, generatorByKey, pickProblem } from '../../math/problems';
 import { pickCategory, planFocus, recommendedTier } from '../../math/adaptive';
-import { effectiveBox, getSkill } from '../../math/mastery';
-import { TRICKS, trickForGenerator } from '../../math/tricks';
+import { suggestTrick, trickForGenerator } from '../../math/tricks';
 import { logAnswer } from '../../state/answers';
 import { persist, save } from '../../state/save';
 import { buildHeroTextures, paintFloor, paintVillage, paintVignette } from '../art/textures';
@@ -49,7 +48,6 @@ export class RunScene extends Phaser.Scene {
   private run!: RunState;
   /** Numbers from equipped gear (damage, HP, crit chance…), fixed for the run. */
   private stats!: HeroStats;
-  private trailTimer = 0;
   private onExit!: (c: ExitChoice) => void;
 
   /** Gameplay time scale: 1 = normal, lower = slow motion while solving. */
@@ -66,7 +64,7 @@ export class RunScene extends Phaser.Scene {
   private W = 360; private H = 640;
   private bounds = { left: 0, right: 0, top: 0, bottom: 0 };
 
-  private hero!: { x: number; y: number; body: Phaser.GameObjects.Sprite; shadow: Phaser.GameObjects.Image; invulnerable: number; fireCooldown: number; swing: number; moving: boolean; facing: number; dir: Dir; attackUntil: number };
+  private hero!: { x: number; y: number; body: Phaser.GameObjects.Sprite; shadow: Phaser.GameObjects.Image; invulnerable: number; hurt: number; fireCooldown: number; swing: number; moving: boolean; facing: number; dir: Dir; attackUntil: number };
   private enemies: Enemy[] = [];
   private shots: Shot[] = [];
   private bullets: Bullet[] = [];
@@ -126,7 +124,7 @@ export class RunScene extends Phaser.Scene {
     Object.assign(this, {
       timeScale: 1, prompting: false, promptGuard: 0, easing: 1, critSaved: false, critRing: undefined, paused: false, ended: false, roomActive: false,
       enemies: [], shots: [], bullets: [], coins: [], hazards: [], props: [], decor: [], chestsOpened: 0, doors: [], crit: null, critCooldown: 2, recent: [], runSkills: {}, missed: [],
-      stick: { active: false, id: -1, ox: 0, oy: 0, dx: 0, dy: 0 }, trailTimer: 0, hudTimer: 0,
+      stick: { active: false, id: -1, ox: 0, oy: 0, dx: 0, dy: 0 }, hudTimer: 0,
       superTint: undefined, wardRing: undefined, frostFactor: 0.4, riftDamage: 0, guaranteedCrit: false,
     });
   }
@@ -170,7 +168,7 @@ export class RunScene extends Phaser.Scene {
     buildAdventurer(this, 'hero', heroSkin());
     const shadow = this.add.image(0, 0, 'shadow').setScale(2.6, 2.2).setDepth(1);
     const body = this.add.sprite(0, 0, 'hero_idle_down').setScale(2).setOrigin(ORIGIN_X, ORIGIN_Y);
-    this.hero = { x: this.W / 2, y: this.H - 90, body, shadow, invulnerable: 0, fireCooldown: 0.4, swing: 0, moving: false, facing: 1, dir: 'up', attackUntil: 0 };
+    this.hero = { x: this.W / 2, y: this.H - 90, body, shadow, invulnerable: 0, hurt: 0, fireCooldown: 0.4, swing: 0, moving: false, facing: 1, dir: 'up', attackUntil: 0 };
   }
 
   private setupInput() {
@@ -277,6 +275,7 @@ export class RunScene extends Phaser.Scene {
       await this.openChestNow(kind);
     }
     if (spec.reward === 'miniboss') {
+      this.heal(Math.round(this.run.maxHp * CONFIG.run.miniBossKillHeal)); // always, on top of the choice below
       const amount = Math.round(this.run.maxHp * CONFIG.run.miniBossHeal);
       if (await ui.pickBoon(amount, this.zone.minibossName) === 'heal') this.heal(amount); else await this.openChestNow('iron');
     }
@@ -370,18 +369,14 @@ export class RunScene extends Phaser.Scene {
   /** Training room: learn a trick for loot. Picks a lesson for your weakest skill when possible. */
   private async trainingRoom() {
     this.paused = true;
-    const weakest = Object.keys(this.runSkills).concat(Object.keys(save.skills))
-      .map(k => ({ k, s: getSkill(k) })).filter(x => x.s && generatorByKey(x.k))
-      .sort((a, b) => effectiveBox(a.s) - effectiveBox(b.s))[0];
-    const fromWeak = weakest ? trickForGenerator(weakest.k) : undefined;
-    const options = TRICKS.filter(t => !this.run.trainingDone.includes(t.id));
-    const trick = fromWeak && !this.run.trainingDone.includes(fromWeak.id) ? fromWeak : options[Math.floor(Math.random() * options.length)];
+    const trick = suggestTrick(this.run.trainingDone); // your weakest skill's lesson, else one you haven't done this run
     this.run.trainingDone.push(trick.id);
     const goldFor = (c: number) => c * CONFIG.training.goldPerCorrect + 10;
     const firstTime = !save.pointsEarned.includes(`lesson-${trick.id}`);
-    const { correct } = await runLesson(trick, c => `You earned ${goldFor(c)} gold and +25 special charge.${firstTime ? (c >= 3 ? ' +1 skill point!' : ' Get 3 of 4 right for a skill point.') : ''}`);
+    const n = CONFIG.training.problemsInRun; // short: a lesson in a run is a breather, not a test (all right = skill point)
+    const { correct } = await runLesson(trick, c => `You earned ${goldFor(c)} gold and +25 special charge.${firstTime ? (c >= n ? ' +1 skill point!' : ` Get ${n} of ${n} right for a skill point.`) : ''}`, { problems: n });
     this.run.gold += goldFor(correct);
-    if (correct >= 3) earnPoint(`lesson-${trick.id}`, trick.title);
+    if (correct >= n) earnPoint(`lesson-${trick.id}`, trick.title);
     this.addCharge(25);
     this.paused = false; this.resetStick();
     this.showDoors();
@@ -558,7 +553,7 @@ export class RunScene extends Phaser.Scene {
 
   private pushHud() {
     const r = this.run;
-    ui.updateHud({ hp: r.hp, maxHp: r.maxHp, gold: r.gold, room: localRoom(r.room), totalRooms: ZONE_ROOMS, zone: this.zone.name, charges: r.charges, perks: r.perks, skills: this.skills });
+    ui.updateHud({ hp: r.hp, maxHp: r.maxHp, gold: r.gold, room: localRoom(r.room), totalRooms: ZONE_ROOMS, zone: this.zone.name, charges: r.charges, perks: r.perks, skills: this.skills, hero: { x: this.hero.x, y: this.hero.y } });
   }
 
   private updateHero(dt: number) {
@@ -596,27 +591,18 @@ export class RunScene extends Phaser.Scene {
     if (target && !h.moving) { h.facing = target.x >= h.x ? 1 : -1; h.dir = dirOf(target.x - h.x, target.y - h.y, h.dir); }
 
     // draw: pick the animation (attack > run > idle) for the direction faced, damage blink
-    h.invulnerable -= dt; h.swing = Math.max(0, h.swing - dt);
+    h.invulnerable -= dt; h.hurt -= dt; h.swing = Math.max(0, h.swing - dt);
     const now = this.time.now;
     const want = now < h.attackUntil ? `hero_attack1_${h.dir}` : h.moving ? `hero_run_${h.dir}` : `hero_idle_${h.dir}`;
     if (h.body.anims.currentAnim?.key !== want) h.body.play(want, true);
     h.body.setPosition(h.x, h.y).setDepth(h.y);
-    h.body.setAlpha(h.invulnerable > 0 && Math.floor(h.invulnerable * 20) % 2 === 0 ? 0.4 : 1);
+    h.body.setAlpha(h.hurt > 0 && Math.floor(h.hurt * 8) % 2 === 0 ? 0.5 : 1); // a calm ~8 Hz blink after a hit (not during the safe window after a question)
     h.shadow.setPosition(h.x, h.y);
     // a saved crit: a pulsing gold ring under the hero until it fires
     if (this.critSaved) {
       this.critRing ??= this.add.ellipse(h.x, h.y, 34, 14).setStrokeStyle(2, 0xf2c94c, 0.9).setDepth(1.9);
       this.critRing.setPosition(h.x, h.y).setVisible(true).setScale(1 + 0.08 * Math.sin(this.time.now / 120));
     } else this.critRing?.setVisible(false);
-    const bob = 0;
-    // fading after-images while moving, for a fast, sharp feel
-    this.trailTimer -= dt;
-    if (h.moving && this.trailTimer <= 0) {
-      this.trailTimer = 0.07;
-      const ghost = this.add.image(h.x, h.y - bob, h.body.texture.key, h.body.frame.name).setScale(2).setOrigin(ORIGIN_X, ORIGIN_Y)
-        .setTint(0x8fb4ff).setAlpha(0.3).setDepth(h.y - 1);
-      this.tweens.add({ targets: ghost, alpha: 0, duration: 220, onComplete: () => ghost.destroy() });
-    }
   }
 
   /** Auto-aim target: the nearest enemy, except that a boss takes priority unless a helper is right on top of you. */
@@ -789,7 +775,6 @@ export class RunScene extends Phaser.Scene {
     this.crit = { img, x: h.x, y: h.y - 20, target, speed, damage: damage * CONFIG.critByTier.damageMult[tier], state: 'pending', isSuper };
     this.startPrompt();
     this.timeScale = isSuper ? CONFIG.crit.superTimeScale : 0;
-    this.cameras.main.zoomTo(isSuper ? 1.08 : 1.04, 200);
     if (isSuper) {
       // drama: wipe every bullet, tint the screen, big label
       this.bullets.forEach(b => { this.tweens.add({ targets: b.img, alpha: 0, scale: 0, duration: 250, onComplete: () => b.img.destroy() }); }); this.bullets = [];
@@ -804,7 +789,6 @@ export class RunScene extends Phaser.Scene {
       // unfreeze first, so nothing below can ever leave the game stuck in frozen time
       this.endPrompt(); this.critCooldown = CONFIG.crit.cooldown;
       this.easeIn(); // time picks up over half a second, and you're briefly safe, so you can react
-      this.cameras.main.zoomTo(1, 200);
       if (this.superTint) { const t = this.superTint; this.superTint = undefined; this.tweens.add({ targets: t, alpha: 0, duration: 300, onComplete: () => t.destroy() }); }
       const c = this.crit;
       if (c?.isSuper) this.hero.invulnerable = Math.max(0.5, this.wardTimer); // don't cut short an active Ward
@@ -862,7 +846,7 @@ export class RunScene extends Phaser.Scene {
     this.promptGuard += deltaMs;
     if (this.promptGuard < 600) return;
     this.promptGuard = 0;
-    if (!document.querySelector('.overlay.crit, .typed-sheet')) { console.warn('prompt guard: no question on screen, unfreezing'); this.endPrompt(); this.cameras.main.zoomTo(1, 200); }
+    if (!document.querySelector('.overlay.crit, .typed-sheet')) { console.warn('prompt guard: no question on screen, unfreezing'); this.endPrompt(); }
   }
 
   /* ================= special skills: type the answer, cast the effect ================= */
@@ -1040,7 +1024,7 @@ export class RunScene extends Phaser.Scene {
     if (h.invulnerable > 0 || this.ended) return;
     const dmg = Math.max(1, Math.round(amount * this.stats.damageTaken * Math.pow(0.85, this.run.perks.skin ?? 0)));
     this.run.hp -= dmg;
-    h.invulnerable = CONFIG.hero.invulnerableAfterHit;
+    h.invulnerable = h.hurt = CONFIG.hero.invulnerableAfterHit;
     this.floatText(h.x, h.y - 50, `-${dmg}`, '#d0604f', 16);
     this.cameras.main.shake(90, 0.005);
     try { navigator.vibrate?.(40); } catch { /* */ }
