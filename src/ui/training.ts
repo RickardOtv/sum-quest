@@ -26,8 +26,8 @@ const stepList = (explain: string) => {
 export function runLesson(trick: Trick, rewardText: (correct: number) => string, opts: { problems?: number } = {}): Promise<{ correct: number }> {
   return new Promise(resolve => {
     const n = opts.problems ?? CONFIG.training.problemsPerLesson, ex = exampleFor(trick);
-    // 1. the trick: one sentence, a worked example step by step, then what you'll be asked
-    const intro = openSheet(`<div class="label center">Training</div><h2>${esc(trick.title)}</h2>
+    // 1. the trick: one sentence, a worked example step by step, then what you'll be asked and one Start button
+    const intro = openSheet(`<h2>${esc(trick.title)}</h2>
       <p class="lesson-idea">${esc(cur(trick.idea))}</p>
       <div class="lesson-example">
         <span class="label">Example</span>
@@ -35,8 +35,8 @@ export function runLesson(trick: Trick, rewardText: (correct: number) => string,
         <ol class="lesson-steps">${ex.steps.map((s, i) => `<li style="animation-delay:${0.2 + i * 0.35}s">${esc(s)}</li>`).join('')}</ol>
         <div class="ex-a" style="animation-delay:${0.2 + ex.steps.length * 0.35}s">= ${esc(ex.answer)}</div>
       </div>
-      <p class="lesson-task"><b>Your turn: ${n} problems.</b> ${esc(trick.task)}</p>
-      <button class="btn primary" id="go">Start</button>`);
+      <p class="lesson-task"><span class="label">Your turn</span>${esc(trick.task)}</p>
+      <button class="btn primary big" id="go">Try ${n} problems</button>`);
     intro.classList.add('lesson-sheet');
     const releaseIntro = pushKeys(e => { if (e.key === 'Enter') { start(); return true; } return false; });
     intro.querySelector('#go')!.addEventListener('click', start);

@@ -552,49 +552,65 @@ function lessonStars(t: Trick) {
   return Math.round((boxes.reduce((a, b) => a + b, 0) / boxes.length / 5) * 3);
 }
 
-/** The yard: a short banner, Sprint + the daily goal, then every lesson as a card with stars. */
+/** Skill points a lesson can still give: one for passing it, one for mastering it. */
+const lessonPoints = (t: Trick) => ['lesson', 'mastery'].filter(k => !save.pointsEarned.includes(`${k}-${t.id}`)).length;
+const starsHtml = (n: number) => `<span class="stars" aria-label="${n} of 3 stars">${[0, 1, 2].map(k => `<i class="${k < n ? 'on' : ''}">★</i>`).join('')}</span>`;
+
+/**
+ * The yard, top to bottom: the banner, one "Up next" lesson with a big Start button (the obvious
+ * next step), a slim strip with Sprint and the daily goal, then every lesson as a list row.
+ */
 function trainingTab(body: HTMLElement) {
   const done = save.trainingByDay[dayKey()] ?? [], today = save.practiceByDay[dayKey()] ?? 0;
   const goalMet = today >= CONFIG.dailyGoalSec, pct = Math.min(1, today / CONFIG.dailyGoalSec);
   body.appendChild(banner(drawYard(), 'yard', 110, NPCS.trainer, NPCS.trainer.lines[trainerLine++ % NPCS.trainer.lines.length]));
 
-  // Sprint is a button; the daily goal is a status card (it fills from solving anywhere)
-  const R = 26, C = 2 * Math.PI * R;
-  const modes = html(`<div class="mode-cards">
-    <button class="mode-card sprint"><span class="big-glyph">${gi('stopwatch')}</span><b>Sprint</b><span class="sub num">${save.sprint.best ? `best ${save.sprint.best}` : '60 seconds'}</span></button>
-    <div class="mode-card daily ${goalMet ? 'met' : ''}" role="status"><svg class="ring" viewBox="0 0 64 64"><circle cx="32" cy="32" r="${R}"/><circle class="val" cx="32" cy="32" r="${R}" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}"/></svg>
-      <span class="chest"></span><b>Daily goal</b><span class="sub num">${goalMet ? 'chest earned' : `${fmtTime(today)} / ${fmtTime(CONFIG.dailyGoalSec)}`}</span>
-      <span class="sub">${goalMet ? 'back tomorrow' : `solve ${CONFIG.dailyGoalSec / 60} min anywhere for a chest`}</span></div></div>`);
-  modes.querySelector('.chest')!.appendChild(drawChest('wood').toCanvas(2));
-  modes.querySelector('.sprint')!.addEventListener('click', () => { clearCamp(); runSprint(() => showCamp('training', actions)); });
-  body.appendChild(modes);
+  // 1. the one obvious action: the suggested lesson
+  const rec = suggestTrick(done), recPts = lessonPoints(rec), recFirst = !done.includes(rec.id);
+  const reward = [recFirst ? 'gold' : '', recPts ? `${GEM} +${recPts} skill point${recPts > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ');
+  const next = html(`<section class="up-next">
+    <span class="orb"><span class="glyph">${LESSON_GLYPH[rec.id] ?? '?'}</span></span>
+    <div class="up-next-text"><span class="label gold">Up next</span><h3>${esc(rec.title)}</h3>
+      <p>${esc(rec.idea)}</p>${reward ? `<span class="reward">${reward}</span>` : ''}</div>
+    <button class="btn primary big" id="start-lesson">Start lesson</button></section>`);
+  next.querySelector('#start-lesson')!.addEventListener('click', () => openLesson(rec, done));
+  body.appendChild(next);
 
-  // lessons as cards: icon, name, mastery stars; a corner badge when there are points or gold to earn
-  const rec = suggestTrick(done);
-  const deck = html(`<section class="deck"><div class="deck-head"><span class="label">Lessons</span><span class="note small">${done.length} / ${TRICKS.length} today</span></div>
-    <p class="note small legend">${GEM} skill point to earn · <span class="star">★</span> how well you know it · <span class="gold-dot">◉</span> gold today</p><div class="lesson-cards"></div></section>`);
-  const grid = deck.querySelector('.lesson-cards')!;
+  // 2. Sprint (a button) and the daily goal (a status bar that fills from solving anywhere)
+  const strip = html(`<section class="yard-strip">
+    <button class="sprint-btn">${gi('stopwatch')}<span><b>Sprint</b><span class="note num">${save.sprint.best ? `best ${save.sprint.best}` : '60 seconds'}</span></span></button>
+    <div class="daily ${goalMet ? 'met' : ''}" role="status"><span class="chest"></span>
+      <span class="daily-text"><b>Daily goal</b><span class="note num">${goalMet ? 'chest earned · back tomorrow' : `${fmtTime(today)} / ${fmtTime(CONFIG.dailyGoalSec)} for a chest`}</span>
+      <span class="bar"><i style="width:${Math.round(pct * 100)}%"></i></span></span></div></section>`);
+  strip.querySelector('.chest')!.appendChild(drawChest('wood').toCanvas(2));
+  strip.querySelector('.sprint-btn')!.addEventListener('click', () => { clearCamp(); runSprint(() => showCamp('training', actions)); });
+  body.appendChild(strip);
+
+  // 3. every lesson as a row: icon, name, stars; on the right what is left to earn, or "Done"
+  const deck = html(`<section class="deck"><div class="deck-head"><span class="label">All lessons</span><span class="note small num">${done.length} / ${TRICKS.length} done today</span></div><div class="lesson-list"></div></section>`);
+  const list = deck.querySelector('.lesson-list')!;
   TRICKS.forEach(t => {
-    const stars = lessonStars(t), isDone = done.includes(t.id), point = !save.pointsEarned.includes(`lesson-${t.id}`);
-    const pts = Number(point) + Number(!save.pointsEarned.includes(`mastery-${t.id}`));
-    const card = html(`<button class="lesson-card ${isDone ? 'done' : ''} ${t === rec ? 'rec' : ''}" title="${esc(t.idea)}">
-      ${t === rec ? '<span class="rec-tag">Recommended</span>' : ''}
-      <span class="orb"><span class="glyph">${LESSON_GLYPH[t.id] ?? '?'}</span></span><b>${esc(t.title)}</b>
-      <span class="stars">${[0, 1, 2].map(k => `<i class="${k < stars ? 'on' : ''}">★</i>`).join('')}</span>
-      ${pts ? `<span class="corner pt">${GEM}+${pts}</span>` : isDone ? '<span class="corner ok">✓</span>' : '<span class="corner gold">◉</span>'}</button>`);
-    card.addEventListener('click', async () => {
-      const first = !isDone;
-      const pay = (c: number) => (first ? CONFIG.training.dailyBonusGold + c * CONFIG.training.goldPerCorrect : 0);
-      const { correct } = await runLesson(t, c => (first ? `You earned ${pay(c)} gold.` : 'Practice makes it stick. No gold for repeats today.') + (point ? (c >= 3 ? ' +1 skill point!' : ' Get 3 of 4 right for a skill point.') : ''));
-      if (first) { save.gold += pay(correct); save.trainingByDay = { [dayKey()]: [...done, t.id] }; }
-      persist();
-      if (correct >= 3) earnPoint(`lesson-${t.id}`, t.title);
-      if (lessonStars(t) >= 3) earnPoint(`mastery-${t.id}`, `${t.title} mastered`);
-      showCamp('training', actions);
-    });
-    grid.appendChild(card);
+    const isDone = done.includes(t.id), pts = lessonPoints(t);
+    const row = html(`<button class="lesson-row ${t === rec ? 'rec' : ''}">
+      <span class="orb"><span class="glyph">${LESSON_GLYPH[t.id] ?? '?'}</span></span>
+      <span class="lesson-row-text"><b>${esc(t.title)}</b>${starsHtml(lessonStars(t))}</span>
+      ${isDone ? '<span class="tag ok">Done</span>' : pts ? `<span class="tag pt">${GEM} +${pts}</span>` : ''}</button>`);
+    row.addEventListener('click', () => openLesson(t, done));
+    list.appendChild(row);
   });
   body.appendChild(deck);
+}
+
+/** Run a lesson from the yard: gold the first time each day, skill points for passing and mastering. */
+async function openLesson(t: Trick, done: string[]) {
+  const first = !done.includes(t.id), point = !save.pointsEarned.includes(`lesson-${t.id}`);
+  const pay = (c: number) => (first ? CONFIG.training.dailyBonusGold + c * CONFIG.training.goldPerCorrect : 0);
+  const { correct } = await runLesson(t, c => (first ? `You earned ${pay(c)} gold.` : 'Practice makes it stick. No gold for repeats today.') + (point ? (c >= 3 ? ' +1 skill point!' : ' Get 3 of 4 right for a skill point.') : ''));
+  if (first) { save.gold += pay(correct); save.trainingByDay = { [dayKey()]: [...done, t.id] }; }
+  persist();
+  if (correct >= 3) earnPoint(`lesson-${t.id}`, t.title);
+  if (lessonStars(t) >= 3) earnPoint(`mastery-${t.id}`, `${t.title} mastered`);
+  showCamp('training', actions);
 }
 
 /**

@@ -247,8 +247,7 @@ ol.lesson-steps { margin: 0; padding: 0 0 0 22px; display: grid; gap: 5px; font-
 ol.lesson-steps li { animation: rise 0.3s both; }
 ol.lesson-steps li::marker { color: var(--muted); }
 .ex-a { font-family: var(--body); font-weight: 800; font-size: 20px; color: var(--good); animation: rise 0.3s both; }
-.lesson-task { margin: 0; font-size: 15px; line-height: 1.4; text-align: center; color: var(--muted); }
-.lesson-task b { color: var(--ink); }
+.lesson-task { margin: 0; display: grid; gap: 2px; font-size: 15px; line-height: 1.4; text-align: center; color: var(--ink); }
 .lesson-result { text-align: left; gap: 8px; }
 .lesson-result > b { text-align: center; font-size: 18px; }
 .lesson-result .answers { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; font-size: 15px; }
@@ -613,9 +612,9 @@ ul.stats.inline { margin: 0; padding: 0; list-style: none; display: flex; flex-w
 .orb { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #4a3f7a, #1d1b27 70%); border: 2px solid var(--t4); box-shadow: 0 0 16px -4px var(--t4); }
 .orb .glyph { font-size: 22px; color: #e2d5ff; }
 
-.lesson-card, .seal { position: relative; display: grid; justify-items: center; gap: 5px; padding: 12px 6px 10px; border-radius: 14px; min-width: 0;
+.seal { position: relative; display: grid; justify-items: center; gap: 5px; padding: 12px 6px 10px; border-radius: 14px; min-width: 0;
   background: linear-gradient(180deg, #2b2838, #1d1b27); border: 2px solid var(--line); box-shadow: 0 4px 0 rgba(0, 0, 0, 0.4); }
-.lesson-card b, .seal b { font-size: 12px; line-height: 1.15; text-align: center; max-width: 100%; }
+.seal b { font-size: 12px; line-height: 1.15; text-align: center; max-width: 100%; }
 
 .seals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .seal .ring { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; border: 3px double var(--gold); background: radial-gradient(circle, #3a2e1a, #1d1b27 70%); }
@@ -624,34 +623,45 @@ ul.stats.inline { margin: 0; padding: 0; list-style: none; display: flex; flex-w
 .seal.on { border-color: var(--gold); } .seal.on .ring { box-shadow: 0 0 18px -2px var(--gold); }
 .seal .note { font-size: 11px; }
 
-.mode-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px 12px 0; }
-.mode-card { position: relative; display: grid; justify-items: center; align-content: center; gap: 2px; min-height: 118px; border-radius: 14px; border: 2px solid var(--line); box-shadow: 0 4px 0 rgba(0, 0, 0, 0.4); overflow: hidden; }
-.mode-card b { font-family: var(--display); font-size: 20px; }
-.mode-card .sub { font-size: 12px; color: var(--muted); }
-.mode-card.sprint { background: radial-gradient(circle at 50% 20%, #5a3e14, #1d1b27 75%); border-color: var(--gold); }
-.mode-card.sprint .big-glyph { font-size: 34px; color: var(--gold-2); filter: drop-shadow(0 0 10px rgba(242, 210, 122, 0.6)); }
-.mode-card.sprint:active { transform: translateY(2px); box-shadow: none; }
-/* the daily goal is a status card, not a button: flat, no raised shadow */
-.mode-card.daily { background: var(--bg-deep); border-style: dashed; box-shadow: none; padding: 0 6px 8px; text-align: center; }
-.mode-card.daily .sub + .sub { font-size: 11px; line-height: 1.25; }
-.mode-card.daily .ring { position: absolute; top: 8px; width: 64px; height: 64px; transform: rotate(-90deg); }
-.mode-card.daily .ring circle { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 5; }
-.mode-card.daily .ring .val { stroke: var(--good); stroke-linecap: round; transition: stroke-dashoffset 0.6s; }
-.mode-card.daily .chest { position: absolute; top: 24px; } .mode-card.daily .chest canvas { display: block; }
-.mode-card.daily b { margin-top: 62px; }
-.mode-card.daily.met { border-color: var(--good); }
+/* the yard: "Up next" lesson, Sprint + daily goal strip, then the lesson list */
+.up-next { display: grid; grid-template-columns: auto 1fr; gap: 12px 14px; align-items: start; margin: 12px 12px 0; padding: 14px;
+  background: linear-gradient(180deg, #2b2838, var(--panel)); border: 2px solid var(--gold); border-radius: 14px; }
+.up-next .orb { width: 56px; height: 56px; }
+.up-next .orb .glyph { font-family: var(--body); font-weight: 800; font-size: 20px; color: var(--ink); }
+.up-next-text { display: grid; gap: 4px; min-width: 0; }
+.up-next h3 { font-size: 22px; line-height: 1.15; }
+.up-next p { margin: 0; font-size: 15px; line-height: 1.4; color: var(--ink); }
+.up-next .reward { font-size: 13px; color: var(--gold-2); }
+.up-next .btn { grid-column: 1 / -1; }
 
-.lesson-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.lesson-card .orb { border-color: #6a6480; box-shadow: none; background: radial-gradient(circle at 40% 35%, #3a3648, #1d1b27 72%); }
-.lesson-card .orb .glyph { font-family: var(--body); font-weight: 800; font-size: 17px; color: var(--ink); }
-.lesson-card .stars { display: flex; gap: 2px; font-size: 12px; } .lesson-card .stars i { font-style: normal; color: var(--line); } .lesson-card .stars i.on { color: var(--gold-2); }
-.lesson-card.done { border-color: var(--good); }
-.lesson-card.rec { border-color: var(--gold); }
-.lesson-card .rec-tag { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: #241a08; background: var(--gold); padding: 1px 6px; border-radius: 6px; white-space: nowrap; }
-.lesson-card .corner { position: absolute; top: 6px; right: 7px; font-size: 11px; font-weight: 800; }
-.lesson-card .corner.pt { color: var(--t4); }
-.lesson-card .corner.ok { color: var(--good); } .lesson-card .corner.gold, .legend .gold-dot { color: var(--gold); }
-.legend .star { color: var(--gold-2); }
+.yard-strip { display: grid; grid-template-columns: auto 1fr; gap: 8px; margin: 10px 12px 0; }
+.sprint-btn, .daily { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; border: 2px solid var(--line); text-align: left; }
+.sprint-btn { background: var(--panel-2); box-shadow: 0 3px 0 var(--bg-deep); }
+.sprint-btn:active { transform: translateY(2px); box-shadow: none; }
+.sprint-btn > .gi { font-size: 26px; color: var(--gold-2); flex-shrink: 0; }
+.sprint-btn > span, .daily-text { display: grid; gap: 1px; min-width: 0; }
+.yard-strip b { font-size: 15px; }
+.yard-strip .note { font-size: 12px; }
+.daily { background: var(--bg-deep); border-style: dashed; } /* status, not a button */
+.daily.met { border-color: var(--good); }
+.daily .chest canvas { display: block; }
+.daily-text { flex: 1; }
+.daily .bar { margin-top: 4px; height: 6px; }
+
+.lesson-list { display: grid; gap: 6px; }
+.lesson-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 8px 12px 8px 8px; min-height: 56px; text-align: left;
+  background: var(--panel); border: 2px solid var(--line); border-radius: 10px; }
+.lesson-row:active { transform: translateY(1px); }
+.lesson-row.rec { border-color: var(--gold); }
+.lesson-row-text { display: grid; gap: 2px; min-width: 0; }
+.lesson-row b { font-size: 15px; line-height: 1.2; }
+.lesson-row .orb, .up-next .orb { border-color: #6a6480; box-shadow: none; background: radial-gradient(circle at 40% 35%, #3a3648, #1d1b27 72%); }
+.lesson-row .orb { width: 40px; height: 40px; }
+.lesson-row .orb .glyph { font-family: var(--body); font-weight: 800; font-size: 15px; color: var(--ink); }
+.lesson-row .tag { font-size: 12px; font-weight: 700; }
+.lesson-row .tag.ok { color: var(--good); }
+.lesson-row .tag.pt { color: var(--t4); }
+.stars { display: flex; gap: 2px; font-size: 12px; } .stars i { font-style: normal; color: var(--line); } .stars i.on { color: var(--gold-2); }
 
 /* ---- item sets ---- */
 .set-line { margin: 6px 0 0; font-size: 12px; color: var(--muted, #9a94a8); }
