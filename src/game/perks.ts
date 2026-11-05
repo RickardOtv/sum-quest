@@ -8,8 +8,8 @@ export type PerkId =
 export interface Perk { id: PerkId; glyph: IconName; name: string; text: string; max: number; }
 
 export const PERKS: Perk[] = [
-  { id: 'multishot', glyph: 'sword-clash', name: 'Twin Slash', text: 'Throw one extra slash', max: 2 },
-  { id: 'rapid', glyph: 'fast-arrow', name: 'Quick Hands', text: 'Throw 20% faster', max: 3 },
+  { id: 'multishot', glyph: 'sword-clash', name: 'Twin Slash', text: 'Throw one extra, weaker slash to the side', max: 2 },
+  { id: 'rapid', glyph: 'fast-arrow', name: 'Quick Hands', text: 'Throw 15% faster', max: 3 },
   { id: 'sharp', glyph: 'sword-slice', name: 'Whetstone', text: '+20% slash damage', max: 4 },
   { id: 'pierce', glyph: 'piercing-sword', name: 'Piercing Edge', text: 'Slashes pass through one more enemy', max: 2 },
   { id: 'swift', glyph: 'run', name: 'Light Feet', text: 'Move 15% faster', max: 2 },

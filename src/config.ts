@@ -7,7 +7,19 @@ export const CONFIG = {
   world: { wallTop: 118, wallSide: 14, wallBottom: 16 }, // the world is always 360 px wide (see main.ts)
 
   // HP, damage, crit chance etc. come from gear (see game/items.ts → heroStats)
-  hero: { speed: 140, radius: 8, invulnerableAfterHit: 0.6, shotsPerSecond: 2.3, slashSpeed: 430 },
+  hero: { speed: 140, radius: 8, invulnerableAfterHit: 0.6, shotsPerSecond: 1.9, slashSpeed: 430 },
+
+  /** Attack pacing, so gear + perks can't stack into a slash storm.
+   *  maxShotsPerSecond caps every rate bonus (gear, dagger, Quick Hands) combined.
+   *  plantDelay: after you stop moving, wait this long before the first swing (no free stutter-step kiting).
+   *  rapidPerStack: Quick Hands bonus per level. Twin Slash extras fan out wider and hit for extraSlashDamage. */
+  attack: { maxShotsPerSecond: 3.6, plantDelay: 0.12, rapidPerStack: 0.15, extraSlashSpread: 0.38, extraSlashDamage: 0.6 },
+
+  /** Swing feel. The sword sheet is 8 frames at 20 fps (0.4 s); the blade connects on frame 3, so the slash
+   *  leaves `windup` s into the swing. Faster attack rates play the swing faster so it always fits.
+   *  Moving during the windup cancels the swing. Hits push small enemies back (`knockback` px/s, fades fast)
+   *  (~8 px total) and pause them for `hitStop` s; kept small so feedback never becomes crowd control. Bosses and charging enemies only flash. */
+  swing: { duration: 0.4, windup: 0.1, knockback: 60, hitStop: 0.04, critHitStop: 0.18 },
 
   /** Random crit: time freezes while you pick 1 of 3 answers. Few but big: at least 13 s apart, ×5.5 damage.
    *  A super crit (rarer) instead slows time, wipes enemy bullets, stops enemies attacking, and hits much harder.

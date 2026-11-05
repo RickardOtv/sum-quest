@@ -39,6 +39,8 @@ export interface Enemy {
   age: number;
   target: { x: number; y: number };
   dead: boolean;
+  /** Hit feedback: a short freeze (hit-stop) and a knockback push that fades out. */
+  stagger: number; kbx: number; kby: number;
 }
 
 const TEX: Record<EnemyKind, string> = { slime: 'slime', spore: 'spore', wisp: 'wisp', boar: 'boar', tusk: 'tusk', boss: 'rootback', imp: 'imp', hound: 'hound', cinderjaw: 'cinderjaw', golem: 'golem' };
@@ -64,7 +66,7 @@ export function createEnemy(arena: Arena, kind: EnemyKind, x: number, y: number,
   img.setScale(0); s.tweens.add({ targets: img, scale, duration: 260, ease: 'Back.Out' });
   return {
     kind, img, shadow, bar, x, y, hp, maxHp: hp, radius: cfg.radius, contactDamage: cfg.contactDamage, gold: cfg.gold,
-    timer: Math.random() * 1.5, phase: 0, aim: 0, special: 0, charges: 0, age: 0, target: { x, y }, dead: false,
+    timer: Math.random() * 1.5, phase: 0, aim: 0, special: 0, charges: 0, age: 0, target: { x, y }, dead: false, stagger: 0, kbx: 0, kby: 0,
   };
 }
 
@@ -79,11 +81,21 @@ function telegraph(e: Enemy, scene: Phaser.Scene, base: number) {
   scene.tweens.add({ targets: e.img, scaleX: base * 1.18, scaleY: base * 0.86, yoyo: true, duration: 200 });
 }
 
+/** A charger that is winding up or charging is committed: hits don't push or pause it. */
+export const committed = (e: Enemy) => CHARGERS.includes(e.kind) && (e.phase === 1 || e.phase === 2);
+
 export function updateEnemy(e: Enemy, arena: Arena, dt: number) {
-  e.age += dt;
-  e.timer += dt;
   const b = arena.bounds;
-  switch (e.kind) {
+  // knockback slides out over ~0.15 s
+  if (e.kbx || e.kby) {
+    e.x += e.kbx * dt; e.y += e.kby * dt;
+    const f = Math.pow(0.0005, dt); e.kbx *= f; e.kby *= f;
+    if (Math.abs(e.kbx) + Math.abs(e.kby) < 5) e.kbx = e.kby = 0;
+  }
+  const frozen = e.stagger > 0; // hit-stop: the enemy's own behaviour pauses for a beat
+  if (frozen) e.stagger -= dt;
+  else { e.age += dt; e.timer += dt; }
+  if (!frozen) switch (e.kind) {
     case 'slime': {
       // hops toward the hero: speed pulses with each hop
       const c = CONFIG.enemies.slime, a = angleTo(e, arena);

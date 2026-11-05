@@ -19,7 +19,7 @@ import { baseById, forgeCost, type HeroStats } from '../items';
 import { currentLooks, currentStats, equippedItem, heroSkin } from '../../state/gear';
 import { skillAt, type Skill } from '../skills';
 import { earnPoint, earnPointAlways } from '../../state/points';
-import { type Arena, type Enemy, createEnemy, destroyEnemy, flies, isBig, updateEnemy } from '../entities/enemies';
+import { type Arena, type Enemy, committed, createEnemy, destroyEnemy, flies, isBig, updateEnemy } from '../entities/enemies';
 import { rollPerks } from '../perks';
 import { type DoorSpec, type EnemyKind, type RunState, ZONE_ROOMS, enemyHpMult, isFinalBoss, localRoom, newRun, planEnemies, rollDoors, zoneOfRoom } from '../run';
 import { ZONES, type Zone } from '../zones';
@@ -64,7 +64,7 @@ export class RunScene extends Phaser.Scene {
   private W = 360; private H = 640;
   private bounds = { left: 0, right: 0, top: 0, bottom: 0 };
 
-  private hero!: { x: number; y: number; body: Phaser.GameObjects.Sprite; shadow: Phaser.GameObjects.Image; invulnerable: number; hurt: number; fireCooldown: number; swing: number; moving: boolean; facing: number; dir: Dir; attackUntil: number };
+  private hero!: { x: number; y: number; body: Phaser.GameObjects.Sprite; shadow: Phaser.GameObjects.Image; invulnerable: number; hurt: number; fireCooldown: number; swing: number; moving: boolean; facing: number; dir: Dir; attackUntil: number; combo: number; windup: { target: Enemy; t: number } | null };
   private enemies: Enemy[] = [];
   private shots: Shot[] = [];
   private bullets: Bullet[] = [];
@@ -90,6 +90,7 @@ export class RunScene extends Phaser.Scene {
   private frostFactor = 0.4;  // enemy speed while slowed (0 = frozen)
   private riftDamage = 0;     // damage dealt when a Time Rift ends
   private forceSuper = false; // Second Sight: next crit is a super crit
+  private sparks?: Phaser.GameObjects.Particles.ParticleEmitter;
   private guaranteedCrit = false; // Second Sight: the very next attack crits
   private wardRing?: Phaser.GameObjects.Arc;
   private critCooldown = 2;
@@ -168,7 +169,7 @@ export class RunScene extends Phaser.Scene {
     buildAdventurer(this, 'hero', heroSkin());
     const shadow = this.add.image(0, 0, 'shadow').setScale(2.6, 2.2).setDepth(1);
     const body = this.add.sprite(0, 0, 'hero_idle_down').setScale(2).setOrigin(ORIGIN_X, ORIGIN_Y);
-    this.hero = { x: this.W / 2, y: this.H - 90, body, shadow, invulnerable: 0, hurt: 0, fireCooldown: 0.4, swing: 0, moving: false, facing: 1, dir: 'up', attackUntil: 0 };
+    this.hero = { x: this.W / 2, y: this.H - 90, body, shadow, invulnerable: 0, hurt: 0, fireCooldown: 0.4, swing: 0, moving: false, facing: 1, dir: 'up', attackUntil: 0, combo: 0, windup: null };
   }
 
   private setupInput() {
@@ -564,7 +565,9 @@ export class RunScene extends Phaser.Scene {
     if (k.up.isDown || k.w.isDown) my -= 1;
     if (k.down.isDown || k.s.isDown) my += 1;
     const len = Math.hypot(mx, my);
+    const wasMoving = h.moving;
     h.moving = len > 0.2;
+    if (wasMoving && !h.moving) h.fireCooldown = Math.max(h.fireCooldown, CONFIG.attack.plantDelay); // plant your feet before swinging
     if (h.moving) {
       const speed = CONFIG.hero.speed * this.stats.moveMult * (1 + 0.15 * (this.run.perks.swift ?? 0)) * Math.min(1, len);
       h.x += (mx / len) * speed * dt; h.y += (my / len) * speed * dt;
@@ -584,17 +587,23 @@ export class RunScene extends Phaser.Scene {
     // attack when standing still
     h.fireCooldown -= dt;
     const target = this.nearestEnemy();
-    if (!h.moving && target && h.fireCooldown <= 0 && this.roomActive && !this.prompting) {
-      h.fireCooldown = 1 / (CONFIG.hero.shotsPerSecond * this.stats.rateMult * (1 + 0.2 * (this.run.perks.rapid ?? 0)));
-      this.attack(target);
+    if (h.windup) {
+      // moving during the windup cancels the swing (you keep the cooldown you already paid)
+      if (h.moving || !this.roomActive) { h.windup = null; h.attackUntil = 0; }
+      else if (!this.prompting && (h.windup.t -= dt) <= 0) { const t = h.windup.target; h.windup = null; this.releaseSlash(t); }
+    } else if (!h.moving && target && h.fireCooldown <= 0 && this.roomActive && !this.prompting) {
+      const rate = CONFIG.hero.shotsPerSecond * this.stats.rateMult * (1 + CONFIG.attack.rapidPerStack * (this.run.perks.rapid ?? 0));
+      h.fireCooldown = 1 / Math.min(CONFIG.attack.maxShotsPerSecond, rate);
+      this.attack(target, h.fireCooldown);
     }
     if (target && !h.moving) { h.facing = target.x >= h.x ? 1 : -1; h.dir = dirOf(target.x - h.x, target.y - h.y, h.dir); }
 
     // draw: pick the animation (attack > run > idle) for the direction faced, damage blink
     h.invulnerable -= dt; h.hurt -= dt; h.swing = Math.max(0, h.swing - dt);
     const now = this.time.now;
-    const want = now < h.attackUntil ? `hero_attack1_${h.dir}` : h.moving ? `hero_run_${h.dir}` : `hero_idle_${h.dir}`;
-    if (h.body.anims.currentAnim?.key !== want) h.body.play(want, true);
+    const swinging = now < h.attackUntil;
+    const want = swinging ? `hero_attack${h.combo % 2 ? 1 : 2}_${h.dir}` : h.moving ? `hero_run_${h.dir}` : `hero_idle_${h.dir}`;
+    if (h.body.anims.currentAnim?.key !== want) { if (!swinging) h.body.anims.timeScale = 1; h.body.play(want, true); }
     h.body.setPosition(h.x, h.y).setDepth(h.y);
     h.body.setAlpha(h.hurt > 0 && Math.floor(h.hurt * 8) % 2 === 0 ? 0.5 : 1); // a calm ~8 Hz blink after a hit (not during the safe window after a question)
     h.shadow.setPosition(h.x, h.y);
@@ -643,29 +652,44 @@ export class RunScene extends Phaser.Scene {
     return true;
   }
 
-  /** Throw slashes at the target. Sometimes it becomes a crit, which asks a question. */
-  private attack(target: Enemy) {
+  /** Start a swing at the target (the slash leaves on the impact frame, see releaseSlash). Sometimes it becomes a crit, which asks a question. */
+  private attack(target: Enemy, cooldown: number) {
     // auto-aim prefers someone you can actually hit: the nearest enemy in clear view, if the first pick is behind cover
     if (this.props.length && !this.clearShot(target)) {
       const open = this.enemies.filter(e => !e.dead && e !== target && this.clearShot(e))
         .sort((a, b) => Phaser.Math.Distance.Between(this.hero.x, this.hero.y, a.x, a.y) - Phaser.Math.Distance.Between(this.hero.x, this.hero.y, b.x, b.y))[0];
       if (open) target = open;
     }
-    const h = this.hero, p = this.run.perks;
-    h.swing = 0.15; h.attackUntil = this.time.now + 400; // play the swing animation
+    const h = this.hero, p = this.run.perks, sw = CONFIG.swing;
+    // swings alternate between the two sword animations (a little combo); faster attack rates play them faster so they never overlap
+    const speed = Math.max(1, sw.duration / (cooldown * 0.95));
+    h.combo++; h.dir = dirOf(target.x - h.x, target.y - h.y, h.dir);
+    h.attackUntil = this.time.now + (sw.duration / speed) * 1000;
+    h.body.anims.timeScale = speed;
+    h.body.play(`hero_attack${h.combo % 2 ? 1 : 2}_${h.dir}`); // restart, even if the last swing is still playing
     const damage = this.stats.damage * (1 + 0.2 * (p.sharp ?? 0));
     const chance = this.stats.critChance + 0.05 * (p.keen ?? 0);
     // A crit that rolls is saved (gold ring under the hero) until a safe moment, so the question
     // never pops up just as a bullet or a charging boar is about to hit you.
     if (!this.critSaved && !this.crit && (this.guaranteedCrit || (this.critCooldown <= 0 && Math.random() < chance))) { this.guaranteedCrit = false; this.critSaved = true; }
     if (this.critSaved && !this.crit && !this.prompting && this.safeForCrit()) { this.critSaved = false; this.launchCrit(target, damage); return; }
+    h.windup = { target, t: sw.windup / speed };
+  }
 
+  /** The blade connects: throw the slash (plus Twin Slash extras). Re-aims if the target died during the windup. */
+  private releaseSlash(target: Enemy) {
+    if (target.dead) { const t = this.nearestEnemy(); if (!t) return; target = t; }
+    const h = this.hero, p = this.run.perks;
+    h.swing = 0.15;
+    const damage = this.stats.damage * (1 + 0.2 * (p.sharp ?? 0));
     const base = Math.atan2(target.y - h.y, target.x - h.x);
     const count = 1 + (p.multishot ?? 0);
     for (let i = 0; i < count; i++) {
-      const a = base + (i - (count - 1) / 2) * 0.2;
+      // the main slash flies straight; Twin Slash extras fan out to the sides and hit softer (a crowd tool, not ×3 on one target)
+      const side = i === 0 ? 0 : i % 2 ? 1 : -1, a = base + side * CONFIG.attack.extraSlashSpread;
+      const dmg = i === 0 ? damage : damage * CONFIG.attack.extraSlashDamage;
       const img = this.add.image(h.x, h.y - 20, 'slash').setScale(2).setRotation(a).setDepth(1500);
-      this.shots.push({ img, x: h.x, y: h.y - 20, vx: Math.cos(a) * CONFIG.hero.slashSpeed, vy: Math.sin(a) * CONFIG.hero.slashSpeed, damage, pierce: 1 + (p.pierce ?? 0), hits: new Set() });
+      this.shots.push({ img, x: h.x, y: h.y - 20, vx: Math.cos(a) * CONFIG.hero.slashSpeed, vy: Math.sin(a) * CONFIG.hero.slashSpeed, damage: dmg, pierce: 1 + (p.pierce ?? 0), hits: new Set() });
     }
   }
 
@@ -679,6 +703,7 @@ export class RunScene extends Phaser.Scene {
         if (s.hits.has(e) || e.dead) continue;
         if (Phaser.Math.Distance.Between(s.x, s.y, e.x, e.y - 8) < e.radius + 6) {
           s.hits.add(e);
+          this.hitFeedback(e, Math.atan2(s.vy, s.vx), CONFIG.swing.hitStop);
           this.damageEnemy(e, s.damage, 'normal');
           this.addCharge(CONFIG.special.chargePerHit);
           if (--s.pierce <= 0) { s.img.destroy(); return false; }
@@ -686,6 +711,18 @@ export class RunScene extends Phaser.Scene {
       }
       return true;
     });
+  }
+
+  /** Make a hit land: a spark, a short freeze, and a push back (small enemies only; committed chargers don't budge). */
+  private hitFeedback(e: Enemy, angle: number, stop: number, push = 1) {
+    if (e.dead) return;
+    if (!this.sparks?.active) this.sparks = this.add.particles(0, 0, 'pxw', { speed: { min: 50, max: 150 }, lifespan: 170, scale: { start: 1.5, end: 0 }, tint: [0xffffff, 0xfff0b0, 0xf2c94c], emitting: false }).setDepth(1550);
+    this.sparks.explode(push > 1 ? 12 : 5, e.x, e.y - 10);
+    if (committed(e)) return;
+    e.stagger = Math.max(e.stagger, stop);
+    if (isBig(e.kind)) return;
+    const kb = CONFIG.swing.knockback * push;
+    e.kbx = Math.cos(angle) * kb; e.kby = Math.sin(angle) * kb;
   }
 
   private fireBullet(x: number, y: number, angle: number, speed: number, damage: number, tex: string) {
@@ -819,6 +856,7 @@ export class RunScene extends Phaser.Scene {
     c.x += ((tx - c.x) / d) * step; c.y += ((ty - c.y) / d) * step; c.img.setPosition(c.x, c.y);
     if (c.state === 'hit' && d < 10) {
       const dmg = c.damage * (c.isSuper ? CONFIG.crit.superDamageMult : CONFIG.crit.damageMult) * (1 + 0.5 * (this.run.perks.execute ?? 0));
+      this.hitFeedback(c.target, Math.atan2(c.target.y - c.y, c.target.x - c.x), CONFIG.swing.critHitStop, 2);
       this.damageEnemy(c.target, dmg, 'crit');
       this.cameras.main.shake(c.isSuper ? 260 : 120, c.isSuper ? 0.014 : 0.006);
       c.img.destroy(); this.crit = null;
@@ -985,6 +1023,7 @@ export class RunScene extends Phaser.Scene {
     if (steal > 0) this.heal(Math.round(this.run.maxHp * steal), false);
     const burst = this.add.particles(e.x, e.y - 8, 'pxw', { speed: { min: 40, max: 140 }, lifespan: 420, quantity: 14, scale: { start: 1.6, end: 0 }, tint: [0x86a04f, 0x5a4a6a, 0xc9b86a], emitting: false }).setDepth(1450);
     burst.explode(14); this.time.delayedCall(600, () => burst.destroy());
+    if (!isBig(e.kind)) this.cameras.main.shake(70, 0.0025); // a kill thumps
     const coins = Math.max(1, Math.round(e.gold / 3));
     for (let i = 0; i < coins; i++) this.dropCoin(e.x, e.y, (e.gold * this.stats.goldMult * this.zone.goldMult) / coins);
     this.tweens.add({ targets: e.img, alpha: 0, scale: e.img.scale * 0.4, duration: 180, onComplete: () => destroyEnemy(e) });
