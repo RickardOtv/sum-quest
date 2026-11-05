@@ -233,7 +233,7 @@ const reskills = () => showCamp('skills', actions, true); // re-render, staying 
 
 /** One screen: the two equipped slots and your points on top, the three-branch tree, loadouts, Rebirth. */
 function skillsTab(body: HTMLElement) {
-  body.appendChild(banner(drawShrine(), 'shrine', 96, NPCS.monk, NPCS.monk.lines[monkLine++ % NPCS.monk.lines.length]));
+  body.appendChild(banner(drawShrine(), 'shrine', 112, NPCS.monk, NPCS.monk.lines[monkLine++ % NPCS.monk.lines.length], 44)); // centred on the stone circle's base and the altar
 
   const top = html(`<section class="skill-top"><div class="skill-slots"></div>
     <div class="points-row">${GEM}<b class="num">${save.skillPoints}</b><span>skill point${save.skillPoints === 1 ? '' : 's'} to spend</span>
@@ -564,10 +564,11 @@ function trainingTab(body: HTMLElement) {
  * A short scene banner: the pixel art at the smallest whole-number scale that fills the
  * panel's width, cropped to `height` (never stretched, so the pixels stay crisp).
  */
-function banner(art: Pixels, cls: string, height: number, npc: Npc, line: string): HTMLElement {
-  const w = document.getElementById('app')!.clientWidth, c = art.toCanvas(Math.ceil(w / art.w));
+function banner(art: Pixels, cls: string, height: number, npc: Npc, line: string, focusY = art.h / 2): HTMLElement {
+  const w = document.getElementById('app')!.clientWidth, scale = Math.ceil(w / art.w), c = art.toCanvas(scale);
   const el = html(`<section class="scene banner ${cls}" style="height:${height}px"><div class="speech">${esc(line)}</div><div class="npc"></div></section>`);
-  Object.assign(c.style, { left: `${Math.floor((w - c.width) / 2)}px`, top: `${Math.floor((height - c.height) / 2)}px` });
+  const top = Math.min(0, Math.max(height - c.height, Math.round(height / 2 - focusY * scale))); // centre on art row `focusY`, never leave a gap
+  Object.assign(c.style, { left: `${Math.floor((w - c.width) / 2)}px`, top: `${top}px` });
   c.className = 'banner-art';
   el.prepend(c);
   el.querySelector('.npc')!.appendChild(npcCanvas(npc, 2));
