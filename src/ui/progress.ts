@@ -83,7 +83,7 @@ function pinnedNotes(): HTMLElement {
       <span class="n-big"><span class="flame ${streak ? 'lit' : ''}">${gi('flame')}</span><b class="num">${streak}</b><small>day${streak === 1 ? '' : 's'}</small></span>
       <span class="week-dots">${dots}</span></div>
     <div class="note n2"><span class="pin">${gi('pin')}</span><span class="n-label">Today</span>
-      ${ring(today / goal, 64, 7, today >= goal ? '#8fd07a' : '#f2c94c', `<b class="num">${Math.floor(Math.min(today, goal) / 60)}:${String(Math.min(today, goal) % 60).padStart(2, '0')}</b><small>of ${goal / 60}:00</small>`)}</div>
+      ${ring(today / goal, 64, 7, today >= goal ? '#8fd07a' : '#f2c94c', `<b class="num">${fmtTime(Math.min(today, goal))}</b><small>of ${fmtTime(goal)}</small>`)}</div>
     <div class="note n3"><span class="pin">${gi('pin')}</span><span class="n-label">Mastery</span>
       ${ring(m / 100, 64, 7, '#b08cff', `<b class="num">${m}%</b>`)}
       <small class="n-sub">of all skills</small></div>
