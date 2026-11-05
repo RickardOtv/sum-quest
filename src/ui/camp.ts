@@ -5,13 +5,13 @@
  * and the "head out" sheet that starts a run.
  */
 import { couldInstallOnPhone, isIos } from '../pwa';
-import { SLOT_ICON, gi, giEl } from './icons';
+import { SLOT_ICON, gi, giEl, type IconName } from './icons';
 import { CONFIG, MADE_BY, forgeChance } from '../config';
 import { TIER_LABEL, pickProblem } from '../math/problems';
 import { effectiveBox, getSkill } from '../math/mastery';
 import { planFocus, recommendedTier } from '../math/adaptive';
 import { TRICKS, suggestTrick, type Trick } from '../math/tricks';
-import { SKILLS, SKILL_SLOTS, TREE, isSkillId, maxLevelOf, passiveById, skillAt, type NodeId, type SkillEffect } from '../game/skills';
+import { SKILLS, SKILL_SLOTS, TREE, isSkillId, maxLevelOf, passiveById, requirementOf, skillAt, type Branch, type NodeId, type SkillEffect } from '../game/skills';
 import { branchOf, buy, canBuy, checkStreakMilestones, earnPoint, isUnlocked, levelOf, refundablePoints, respec, respecCost, respecUnlocked } from '../state/points';
 import { logAnswer } from '../state/answers';
 import { currentStreak, dayKey, persist, save } from '../state/save';
@@ -233,10 +233,11 @@ const reskills = () => showCamp('skills', actions, true); // re-render, staying 
 
 /** One screen: the two equipped slots and your points on top, the three-branch tree, loadouts, Rebirth. */
 function skillsTab(body: HTMLElement) {
+  body.classList.add('med');
   body.appendChild(banner(drawShrine(), 'shrine', 112, NPCS.monk, NPCS.monk.lines[monkLine++ % NPCS.monk.lines.length], 44)); // centred on the stone circle's base and the altar
 
   const top = html(`<section class="skill-top"><div class="skill-slots"></div>
-    <div class="points-row">${GEM}<b class="num">${save.skillPoints}</b><span>skill point${save.skillPoints === 1 ? '' : 's'} to spend</span>
+    <div class="points-row ${save.skillPoints ? 'has' : ''}">${GEM}<b class="num">${save.skillPoints}</b><span>skill point${save.skillPoints === 1 ? '' : 's'} to spend</span>
       <button class="info-btn" aria-label="How to earn skill points">?</button></div></section>`);
   const slots = top.querySelector('.skill-slots')!;
   for (let i = 0; i < SKILL_SLOTS; i++) {
@@ -249,24 +250,7 @@ function skillsTab(body: HTMLElement) {
   top.querySelector('.info-btn')!.addEventListener('click', pointsInfo);
   body.appendChild(top);
 
-  // the tree, inline: tap a node for details, unlock / level up, and equip
-  const tree = html(`<section class="deck"><div class="deck-head"><span class="label">Skill tree</span><span class="note small">1 point per level · top to bottom</span></div><div class="tree"></div></section>`);
-  for (const br of TREE) {
-    const col = html(`<div class="branch"><div class="branch-head"><b>${br.name}</b><span class="note small">${esc(br.blurb)}</span></div></div>`);
-    br.nodes.forEach((id, i) => {
-      const lv = levelOf(id), max = maxLevelOf(id), skill = isSkillId(id) ? skillAt(id, Math.max(1, lv)) : undefined, pas = skill ? undefined : passiveById(id);
-      const slot = skill ? save.equippedSkills.indexOf(skill.id) : -1;
-      const node = html(`<button class="node ${skill ? 'is-skill' : 'passive'} ${lv ? 'on' : 'locked'} ${canBuy(id).ok ? 'buyable' : ''}">
-        ${i > 0 ? '<i class="link"></i>' : ''}<span class="kind">${skill ? 'Skill' : 'Passive'}</span>
-        <span class="ic">${gi(skill ? skill.glyph : pas!.glyph)}</span><b>${esc(skill ? skill.name : pas!.name)}</b>
-        <span class="eff">${esc(skill ? skill.short : pas!.text(Math.max(1, lv)))}</span><span class="lv num">Lv ${lv}/${max}</span>
-        ${slot >= 0 ? `<span class="where">Slot ${slot + 1}</span>` : ''}</button>`);
-      node.addEventListener('click', () => openNode(id));
-      col.appendChild(node);
-    });
-    tree.querySelector('.tree')!.appendChild(col);
-  }
-  body.appendChild(tree);
+  body.appendChild(skillTree());
 
   // loadouts as three seals
   const seals = html(`<section class="deck"><div class="deck-head"><span class="label">Loadouts</span><span class="note small">skills + gear, saved together</span></div><div class="seals"></div></section>`);
@@ -286,6 +270,59 @@ function skillsTab(body: HTMLElement) {
     body.appendChild(re);
   } else body.appendChild(html('<p class="note small center">Beat Old Rootback once to unlock Rebirth (refund your points).</p>'));
 }
+
+/* the tree: one branch at a time (tabs), its nodes as a top-to-bottom path of rows */
+const BRANCH_GLYPH: Record<Branch, IconName> = { striker: 'sword-clash', warden: 'checked-shield', tactician: 'magic-swirl' };
+let treeBranch: Branch | null = null; // the open tab, remembered while in camp
+
+/** max, buyable (you have a point for it), open (can take a point, none to spend), locked (the node above comes first) */
+function nodeState(id: NodeId): 'max' | 'buyable' | 'open' | 'locked' {
+  const req = requirementOf(id);
+  if (levelOf(id) >= maxLevelOf(id)) return 'max';
+  if (canBuy(id).ok) return 'buyable';
+  return req && !isUnlocked(req) ? 'locked' : 'open';
+}
+
+function skillTree(): HTMLElement {
+  treeBranch ??= (TREE.find(b => b.nodes.some(id => canBuy(id).ok)) ?? TREE[0]).id;
+  const el = html(`<section class="deck tree-deck"><div class="deck-head"><span class="label">Skill tree</span><span class="note small">${GEM} 1 point per level</span></div>
+    <div class="branch-tabs" role="tablist">${TREE.map(b => {
+      const owned = b.nodes.filter(isUnlocked).length, open = b.nodes.some(id => canBuy(id).ok);
+      return `<button role="tab" data-b="${b.id}">${gi(BRANCH_GLYPH[b.id])}<b>${b.name}</b><span class="num">${owned}/${b.nodes.length}</span>${open ? '<i class="dot-new" title="A point can go here"></i>' : ''}</button>`;
+    }).join('')}</div><div class="branch-pane"></div></section>`);
+  const pane = el.querySelector<HTMLElement>('.branch-pane')!;
+  const show = (id: Branch) => {
+    treeBranch = id;
+    el.querySelectorAll<HTMLButtonElement>('[data-b]').forEach(t => { const on = t.dataset.b === id; t.classList.toggle('on', on); t.setAttribute('aria-selected', String(on)); });
+    const br = TREE.find(b => b.id === id)!;
+    pane.innerHTML = `<p class="note small branch-blurb">${esc(br.blurb)}</p>`;
+    const path = html('<ol class="tpath"></ol>');
+    br.nodes.forEach(n => path.appendChild(treeRow(n)));
+    pane.appendChild(path);
+  };
+  el.querySelectorAll<HTMLButtonElement>('[data-b]').forEach(t => t.addEventListener('click', () => show(t.dataset.b as Branch)));
+  show(treeBranch);
+  return el;
+}
+
+/** One node as a row: icon on the path, name + effect + level pips, then what it costs (or a lock / Max). */
+function treeRow(id: NodeId): HTMLElement {
+  const lv = levelOf(id), max = maxLevelOf(id), state = nodeState(id);
+  const skill = isSkillId(id) ? skillAt(id, Math.max(1, lv)) : undefined, pas = skill ? undefined : passiveById(id);
+  const slot = skill ? save.equippedSkills.indexOf(skill.id) : -1, req = requirementOf(id);
+  const act = state === 'max' ? '<span class="tn-act max">Max</span>'
+    : state === 'locked' ? `<span class="tn-act lock" title="Unlock the node above first">${gi('padlock')}</span>`
+    : `<span class="tn-act cost"><small>${lv ? 'Level up' : 'Unlock'}</small><span><b class="num">1</b> ${GEM}</span></span>`;
+  const li = html(`<li><button class="tnode ${skill ? 'skill' : 'passive'} ${state} ${lv ? 'owned' : ''}">
+    <span class="tn-ic">${gi(skill ? skill.glyph : pas!.glyph)}</span>
+    <span class="tn-info"><span class="tn-name"><b>${esc(skill ? skill.name : pas!.name)}</b><span class="tn-kind">${skill ? 'Skill' : 'Passive'}</span>${slot >= 0 ? `<span class="tn-slot">Slot ${slot + 1}</span>` : ''}</span>
+      <span class="tn-eff">${state === 'locked' && req ? `After ${esc(nodeName(req))}` : esc(skill ? skill.short : pas!.text(Math.max(1, lv)))}</span>
+      <span class="tn-lv"><span class="lv-pips">${Array.from({ length: max }, (_, k) => `<i class="${k < lv ? 'on' : ''}"></i>`).join('')}</span><span class="num">Lv ${lv}/${max}</span></span></span>
+    ${act}</button></li>`);
+  li.querySelector('button')!.addEventListener('click', () => openNode(id));
+  return li;
+}
+const nodeName = (id: NodeId) => (isSkillId(id) ? skillAt(id, 1).name : passiveById(id).name);
 
 /** Put a skill in a slot (null empties it). If it sat in the other slot, the two swap. */
 function equipSkill(slot: number, id: SkillEffect | null) {
