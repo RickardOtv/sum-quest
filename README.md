@@ -29,9 +29,8 @@
 
 ## The idea
 
-<sub>The world lost its logic and the forest creatures miscount. Math is rare here and works like magic: move to dodge,
-stand still to attack, and every crit, spell, chest and forge strike is a sum. A wrong sum just fizzles.
-Training lessons teach real shortcuts, and a memory model brings back what you're about to forget.</sub>
+The world lost its logic. Math is rare here and works like magic: every crit, spell, chest and forge strike
+is a sum, and a wrong sum just fizzles. Move to dodge, stand still to attack.
 
 ## Screenshots
 
@@ -50,14 +49,10 @@ Training lessons teach real shortcuts, and a memory model brings back what you'r
 
 ## What's in it
 
-<sub>
-
 - **Two zones:** Thornwood and burning Emberfall, each with a mini boss and a boss.
 - **Math as power:** crits, typed-answer spells, chests and the forge.
 - **Gear and sets** that show on your hero, and a three-branch **skill tree**.
 - **Learns with you:** difficulty stays around 85% right; a daily 3-minute goal and a 60-second Sprint.
-
-</sub>
 
 ## Run it yourself
 
@@ -72,12 +67,9 @@ The story and the math-as-magic plan: [docs/lore.md](docs/lore.md).
 
 ## Privacy
 
-<sub>No accounts, no cookies, no tracking. Your save stays on your device. Settings → <b>Backup save</b> gives you a code
-to move your progress to another device.</sub>
+No accounts, no cookies, no tracking. Your save stays on your device.
 
 ## Credits
-
-<sub>
 
 - Hero sprite: **[Adventurer 2D Top-Down](https://xzany.itch.io/top-down-adventurer-character)** by Mattz Art (free
   version), used and modified under its licence. Gear and weapons are drawn on top of it in code.
@@ -85,7 +77,5 @@ to move your progress to another device.</sub>
   [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/), via the `@iconify-json/game-icons` package.
 - Everything else (enemies, camp, props, items, UI) is drawn in code in this repo. The bright top-down look is
   inspired by Cainos' "Pixel Art Top Down" packs; none of their assets are used.
-
-</sub>
 
 Made by [RickardOtv](https://github.com/RickardOtv).
