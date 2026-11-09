@@ -105,4 +105,9 @@ No accounts, cookies or tracking. Progress is stored locally on the device.
 - Everything else (enemies, camp, props, items, UI) is drawn in code in this repo. The visual style is inspired
   by Cainos' "Pixel Art Top Down" packs; no assets from them are used.
 
+## License
+
+Code is [MIT](LICENSE). The hero sprite and icons keep their own licences (see Credits). The Sum Quest name,
+logo and lore are all rights reserved.
+
 Made by [RickardOtv](https://github.com/RickardOtv).
