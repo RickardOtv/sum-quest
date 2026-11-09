@@ -10,6 +10,10 @@
 </p>
 
 <p align="center">
+  <a href="https://sum-quest.rickardotvos.workers.dev"><img src="https://img.shields.io/badge/%E2%96%B6%20Play%20in%20your%20browser-e0a43a?style=for-the-badge" alt="Play in your browser" height="40"></a>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
   <img src="https://img.shields.io/badge/Phaser-4-8B5CF6" alt="Phaser 4">
   <img src="https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white" alt="Vite">
@@ -74,7 +78,7 @@ Wrong answers never hurt you. They just fizzle.
 | Use a camp station | Tap it | E, Enter or Space |
 | Bag / Pause | Top buttons | I / Esc |
 
-Play in the browser on a phone or a computer. On iPhone, **Share → Add to Home Screen** installs it as an app
+Play at **[sum-quest.rickardotvos.workers.dev](https://sum-quest.rickardotvos.workers.dev)** on a phone or a computer. On iPhone, **Share → Add to Home Screen** installs it as an app
 that works offline.
 
 ## Run it yourself
