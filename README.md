@@ -5,8 +5,8 @@
 <h1 align="center">Sum Quest</h1>
 
 <p align="center">
-  <b>A pixel-art action roguelite where mental math is your magic.</b><br>
-  Dodge, fight and loot your way through Thornwood and Emberfall. Every crit, spell and forge strike is a sum.
+  A top-down action roguelite for practising mental math.<br>
+  Critical hits, spells and upgrades are earned by solving arithmetic.
 </p>
 
 <p align="center">
@@ -21,38 +21,36 @@
   <img src="https://img.shields.io/badge/no%20tracking-%E2%9C%93-2ea043" alt="No tracking">
 </p>
 
-<p align="center">
-  <img src="docs/screenshots/camp.png" width="250" alt="The camp">
-  <img src="docs/screenshots/emberfall.png" width="250" alt="A fight in Emberfall">
-  <img src="docs/screenshots/crit.png" width="250" alt="A critical hit question">
-</p>
+## About
 
-## The idea
-
-The world lost its logic. Math is rare here and works like magic: every crit, spell, chest and forge strike
-is a sum, and a wrong sum just fizzles. Move to dodge, stand still to attack.
+Sum Quest combines a top-down action game with mental-math practice. You move to dodge and stand still to
+attack. Critical hits, spells, chests and gear upgrades each ask a math question. A wrong answer costs you the
+bonus, nothing more. Questions adapt to your level and repeat what you are close to forgetting.
 
 ## Screenshots
 
+<div align="center">
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/fight.png" width="240" alt="Thornwood fight"><br><sub>Thornwood</sub></td>
-    <td align="center"><img src="docs/screenshots/emberfall.png" width="240" alt="Emberfall"><br><sub>Emberfall, the burning village</sub></td>
-    <td align="center"><img src="docs/screenshots/camp.png" width="240" alt="Camp"><br><sub>The camp between runs</sub></td>
+    <td align="center"><img src="docs/screenshots/camp.png" width="240" alt="Camp"><br><sub>Camp</sub></td>
+    <td align="center"><img src="docs/screenshots/emberfall.png" width="240" alt="Emberfall"><br><sub>Combat in Emberfall</sub></td>
+    <td align="center"><img src="docs/screenshots/crit.png" width="240" alt="Critical hit"><br><sub>Critical hit question</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/training.png" width="240" alt="Training yard"><br><sub>Training yard</sub></td>
-    <td align="center"><img src="docs/screenshots/lesson.png" width="240" alt="A lesson"><br><sub>A lesson: the shortcut, then your turn</sub></td>
-    <td align="center"><img src="docs/screenshots/meditation.png" width="240" alt="Skill tree"><br><sub>The skill tree</sub></td>
+    <td align="center"><img src="docs/screenshots/training.png" width="240" alt="Training"><br><sub>Training</sub></td>
+    <td align="center"><img src="docs/screenshots/lesson.png" width="240" alt="Lesson"><br><sub>Lesson</sub></td>
+    <td align="center"><img src="docs/screenshots/meditation.png" width="240" alt="Skill tree"><br><sub>Skill tree</sub></td>
   </tr>
 </table>
+</div>
 
-## What's in it
+## Features
 
-- **Two zones:** Thornwood and burning Emberfall, each with a mini boss and a boss.
-- **Math as power:** crits, typed-answer spells, chests and the forge.
-- **Gear and sets** that show on your hero, and a three-branch **skill tree**.
-- **Learns with you:** difficulty stays around 85% right; a daily 3-minute goal and a 60-second Sprint.
+- Two zones, 20 rooms, with mini bosses and bosses.
+- Math-driven combat: multiple-choice critical hits and typed-answer spells.
+- Gear with rarities and sets, and a skill tree with three branches.
+- Adaptive difficulty aimed at about 85% accuracy, with spaced repetition.
+- Short lessons on mental-math techniques, a daily 3-minute goal and a 60-second sprint mode.
 
 ## Run it yourself
 
@@ -62,12 +60,12 @@ npm run dev     # http://localhost:5173, and on your phone through the network U
 npm test
 ```
 
-How it's built, where everything lives and how to publish it: [docs/development.md](docs/development.md).
-The story and the math-as-magic plan: [docs/lore.md](docs/lore.md).
+Architecture, file layout and deployment: [docs/development.md](docs/development.md).
+Setting and design notes: [docs/lore.md](docs/lore.md).
 
 ## Privacy
 
-No accounts, no cookies, no tracking. Your save stays on your device.
+No accounts, cookies or tracking. Progress is stored locally on the device.
 
 ## Credits
 
@@ -75,7 +73,7 @@ No accounts, no cookies, no tracking. Your save stays on your device.
   version), used and modified under its licence. Gear and weapons are drawn on top of it in code.
 - Interface icons: **[game-icons.net](https://game-icons.net)** by Lorc, Delapouite and contributors,
   [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/), via the `@iconify-json/game-icons` package.
-- Everything else (enemies, camp, props, items, UI) is drawn in code in this repo. The bright top-down look is
-  inspired by Cainos' "Pixel Art Top Down" packs; none of their assets are used.
+- Everything else (enemies, camp, props, items, UI) is drawn in code in this repo. The visual style is inspired
+  by Cainos' "Pixel Art Top Down" packs; no assets from them are used.
 
 Made by [RickardOtv](https://github.com/RickardOtv).
