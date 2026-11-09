@@ -5,7 +5,7 @@
 <h1 align="center">Sum Quest</h1>
 
 <p align="center">
-  A top-down action roguelite for practising mental math, built on learning research.<br>
+  A top-down action roguelite made for phones, for practising mental math. Built on learning research.<br>
   Critical hits, spells and upgrades are earned by solving arithmetic.
 </p>
 
