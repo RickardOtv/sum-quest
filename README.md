@@ -27,6 +27,32 @@ Sum Quest combines a top-down action game with mental-math practice. You move to
 attack. Critical hits, spells, chests and gear upgrades each ask a math question. A wrong answer costs you the
 bonus, nothing more.
 
+
+## Screenshots
+
+<div align="center">
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/camp.png" width="240" alt="Camp"><br><sub>Camp</sub></td>
+    <td align="center"><img src="docs/screenshots/emberfall.png" width="240" alt="Emberfall"><br><sub>Combat in Emberfall</sub></td>
+    <td align="center"><img src="docs/screenshots/crit.png" width="240" alt="Critical hit"><br><sub>Critical hit question</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/training.png" width="240" alt="Training"><br><sub>Training</sub></td>
+    <td align="center"><img src="docs/screenshots/lesson.png" width="240" alt="Lesson"><br><sub>Lesson</sub></td>
+    <td align="center"><img src="docs/screenshots/meditation.png" width="240" alt="Skill tree"><br><sub>Skill tree</sub></td>
+  </tr>
+</table>
+</div>
+
+## Features
+
+- Two zones, 20 rooms, with mini bosses and bosses.
+- Math-driven combat: multiple-choice critical hits and typed-answer spells.
+- Gear with rarities and sets, and a skill tree with three branches.
+- Adaptive difficulty aimed at about 85% accuracy, with spaced repetition.
+- Short lessons on mental-math techniques, a daily 3-minute goal and a 60-second sprint mode.
+
 ## Built on learning research
 
 Sum Quest started from reading research on how people learn and remember best. Each part of the practice
@@ -54,31 +80,6 @@ system follows a specific finding:
 - Habgood & Ainsworth (2011). *Motivating children to learn effectively: exploring the value of intrinsic integration in educational games.* Journal of the Learning Sciences.
 
 </details>
-
-## Screenshots
-
-<div align="center">
-<table>
-  <tr>
-    <td align="center"><img src="docs/screenshots/camp.png" width="240" alt="Camp"><br><sub>Camp</sub></td>
-    <td align="center"><img src="docs/screenshots/emberfall.png" width="240" alt="Emberfall"><br><sub>Combat in Emberfall</sub></td>
-    <td align="center"><img src="docs/screenshots/crit.png" width="240" alt="Critical hit"><br><sub>Critical hit question</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/screenshots/training.png" width="240" alt="Training"><br><sub>Training</sub></td>
-    <td align="center"><img src="docs/screenshots/lesson.png" width="240" alt="Lesson"><br><sub>Lesson</sub></td>
-    <td align="center"><img src="docs/screenshots/meditation.png" width="240" alt="Skill tree"><br><sub>Skill tree</sub></td>
-  </tr>
-</table>
-</div>
-
-## Features
-
-- Two zones, 20 rooms, with mini bosses and bosses.
-- Math-driven combat: multiple-choice critical hits and typed-answer spells.
-- Gear with rarities and sets, and a skill tree with three branches.
-- Adaptive difficulty aimed at about 85% accuracy, with spaced repetition.
-- Short lessons on mental-math techniques, a daily 3-minute goal and a 60-second sprint mode.
 
 ## Run it yourself
 
